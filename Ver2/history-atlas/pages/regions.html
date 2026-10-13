@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Регионы мира — Хронолента</title>
+<link rel="stylesheet" href="../assets/css/main.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23283044'/><rect x='2' y='3' width='12' height='2' fill='%23e0a96d'/><rect x='2' y='7' width='9' height='2' fill='%2366bb6a'/><rect x='2' y='11' width='6' height='2' fill='%234dd0e1'/></svg>">
+</head>
+<body>
+<div id="top"></div>
+<div class="page"><div class="page-inner">
+  <h1>Регионы мира</h1>
+  <p class="lead">Девять строк таблицы: общепланетарный план «Весь мир» и восемь
+  макро-регионов — от Южной Америки до Океании. Каждый делится
+    на суб-регионы (дорожки), по которым раскладываются народы и государства.</p>
+  <div class="cards" id="cards"></div>
+</div></div>
+<script type="module">
+import { loadData, topbar, entityHref, chartHref, $ } from '../assets/js/pages.js';
+const data = await loadData();
+$('#top').innerHTML = topbar('Регионы');
+const cards = $('#cards');
+for (const r of data.regions) {
+  const ents = data.entities.filter(e => (e.regions || []).includes(r.id));
+  const evs = data.events.filter(e => e.region === r.id);
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.style.borderTop = '4px solid ' + r.color;
+  el.innerHTML = `<h3>${r.name}</h3>
+    <p class="tagline">${ents.length} объектов · ${evs.length} событий · ${r.lanes.length} суб-регионов</p>
+    <p>${r.lanes.map(l => l.name).join(' · ')}</p>
+    <p><a href="${entityHref('region', r.id)}">Обзор региона</a> ·
+       <a href="${chartHref('region', r.id)}">Показать на таблице</a></p>
+    <details><summary class="tagline">Список объектов (${ents.length})</summary>
+      <p style="margin-top:8px">${ents.sort((a,b)=>a.start-b.start).map(e =>
+        `<a href="${entityHref('entity', e.id)}">${e.name}</a>`).join(' · ')}</p></details>`;
+  cards.appendChild(el);
+}
+</script>
+</body>
+</html>

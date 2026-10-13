@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ключевые события — Хронолента</title>
+<link rel="stylesheet" href="../assets/css/main.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23283044'/><rect x='2' y='3' width='12' height='2' fill='%23e0a96d'/><rect x='2' y='7' width='9' height='2' fill='%2366bb6a'/><rect x='2' y='11' width='6' height='2' fill='%234dd0e1'/></svg>">
+</head>
+<body>
+<div id="top"></div>
+<div class="page"><div class="page-inner">
+  <h1>Ключевые события</h1>
+  <p class="lead">Все события, отмеченные пиктограммами на таблице. Фильтруйте по типу,
+    региону и эпохе или ищите по названию.</p>
+  <div class="filters-row">
+    <input type="search" id="q" placeholder="поиск по названию и описанию…">
+    <select id="icon"><option value="">все типы</option></select>
+    <select id="region"><option value="">все регионы</option></select>
+    <select id="era"><option value="">все эпохи</option></select>
+    <span class="tagline" id="count"></span>
+  </div>
+  <table class="tbl">
+    <thead><tr><th style="width:34px"></th><th style="width:110px">Год</th><th>Событие</th>
+      <th style="width:190px">Место</th><th style="width:120px"></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div></div>
+<script type="module">
+import { loadData, topbar, entityHref, chartHref, iconCanvas, $ } from '../assets/js/pages.js';
+import { formatYear, formatSpan } from '../assets/js/scale.js';
+import { ICON_LABELS } from '../assets/js/icons.js';
+const data = await loadData();
+$('#top').innerHTML = topbar('События');
+const laneName = id => {
+  for (const r of data.regions) for (const l of r.lanes) if (l.id === id) return l.name + ' · ' + r.short;
+  return id;
+};
+for (const ic of data.icons) $('#icon').add(new Option(ICON_LABELS[ic.id] || ic.name, ic.id));
+for (const r of data.regions) $('#region').add(new Option(r.short, r.id));
+for (const e of data.eras) $('#era').add(new Option(e.name, e.id));
+function render() {
+  const q = $('#q').value.trim().toLowerCase();
+  const ic = $('#icon').value, rg = $('#region').value, er = $('#era').value;
+  const era = data.eras.find(e => e.id === er);
+  const rows = data.events.filter(e =>
+    (!q || (e.name + ' ' + e.summary).toLowerCase().includes(q)) &&
+    (!ic || e.icon === ic) && (!rg || e.region === rg) &&
+    (!era || (e.year >= era.start && e.year <= era.end)));
+  $('#count').textContent = `${rows.length} из ${data.events.length}`;
+  const tb = $('#rows'); tb.innerHTML = '';
+  for (const e of rows) {
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td');
+    td0.appendChild(iconCanvas(e.icon, 20));
+    tr.appendChild(td0);
+    const rest = document.createElement('template');
+    rest.innerHTML = `<td>${e.yearEnd ? formatSpan(e.year, e.yearEnd) : formatYear(e.year, true)}</td>
+      <td><a href="${entityHref('event', e.id)}"><b>${e.name}</b></a><br>
+        <span class="tagline">${e.summary}</span></td>
+      <td class="tagline">${laneName(e.lane)}</td>
+      <td><a href="${chartHref('event', e.id)}">на таблице ↗</a></td>`;
+    tr.append(...rest.content.childNodes);
+    tb.appendChild(tr);
+  }
+}
+['q', 'icon', 'region', 'era'].forEach(id => {
+  $('#' + id).addEventListener('input', render);
+  $('#' + id).addEventListener('change', render);
+});
+render();
+</script>
+</body>
+</html>

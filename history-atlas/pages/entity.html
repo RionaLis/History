@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Статья — Хронолента</title>
+<link rel="stylesheet" href="../assets/css/main.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23283044'/><rect x='2' y='3' width='12' height='2' fill='%23e0a96d'/><rect x='2' y='7' width='9' height='2' fill='%2366bb6a'/><rect x='2' y='11' width='6' height='2' fill='%234dd0e1'/></svg>">
+</head>
+<body>
+<div id="top"></div>
+<div class="page"><div class="page-inner" id="main"></div></div>
+<script type="module">
+import { loadData, topbar, entityHref, chartHref, collections, renderArticle,
+         TYPE_LABEL, $ } from '../assets/js/pages.js';
+import { formatSpan, formatYear } from '../assets/js/scale.js';
+const data = await loadData();
+$('#top').innerHTML = topbar('Статьи');
+const p = new URLSearchParams(location.search);
+const kind = p.get('kind') || 'entity';
+const id = p.get('id');
+const main = $('#main');
+
+if (!id) {
+  const groups = {};
+  for (const e of data.entities) (groups[e.region] ||= []).push(e);
+  main.innerHTML = `<h1>Все статьи</h1>
+    <p class="lead">${data.entities.length} народов, культур и государств ·
+      ${data.events.length} событий · ${data.migrations.length} переселений.
+      Каждая статья — отдельный markdown-файл в папке <code>content/</code>.</p>
+    <div class="filters-row"><input type="search" id="q" placeholder="фильтр по названию…"></div>
+    <div id="list"></div>`;
+  const draw = () => {
+    const q = ($('#q').value || '').trim().toLowerCase();
+    const list = $('#list'); list.innerHTML = '';
+    for (const r of data.regions) {
+      const items = (groups[r.id] || [])
+        .filter(e => !q || e.name.toLowerCase().includes(q))
+        .sort((a, b) => a.start - b.start);
+      if (!items.length) continue;
+      const box = document.createElement('div');
+      box.innerHTML = `<h2 style="margin-top:18px">${r.name}</h2>
+        <table class="tbl"><tbody>${items.map(e => `<tr>
+          <td style="width:150px">${formatSpan(e.start, e.end)}</td>
+          <td><a href="${entityHref('entity', e.id)}">${e.name}</a>
+            <span class="tagline">— ${TYPE_LABEL[e.type] || e.type}</span><br>
+            <span class="tagline">${e.summary || ''}</span></td>
+          <td style="width:110px"><a href="${chartHref('entity', e.id)}">на таблице ↗</a></td>
+        </tr>`).join('')}</tbody></table>`;
+      list.appendChild(box);
+    }
+  };
+  $('#q').addEventListener('input', draw);
+  draw();
+} else {
+  const coll = collections(data)[kind] || data.entities;
+  const obj = coll.find(x => x.id === id);
+  if (!obj) {
+    main.innerHTML = `<h1>Не найдено</h1><p>Объект <code>${id}</code> отсутствует в индексе.</p>`;
+  } else {
+    document.title = obj.name + ' — Хронолента';
+    main.innerHTML = `<div class="article" id="art"></div>`;
+    await renderArticle($('#art'), obj, kind, data);
+    if (kind === 'region') {
+      const ents = data.entities.filter(e => (e.regions || []).includes(obj.id))
+        .sort((a, b) => a.start - b.start);
+      const evs = data.events.filter(e => e.region === obj.id);
+      $('#art').insertAdjacentHTML('beforeend', `
+        <h2>Народы и государства региона (${ents.length})</h2>
+        <table class="tbl"><tbody>${ents.map(e => `<tr>
+          <td style="width:150px">${formatSpan(e.start, e.end)}</td>
+          <td><a href="${entityHref('entity', e.id)}">${e.name}</a><br>
+            <span class="tagline">${e.summary || ''}</span></td></tr>`).join('')}</tbody></table>
+        <h2>События региона (${evs.length})</h2>
+        <ul>${evs.map(e => `<li>${formatYear(e.year, true)} —
+          <a href="${entityHref('event', e.id)}">${e.name}</a></li>`).join('')}</ul>`);
+    }
+  }
+}
+</script>
+</body>
+</html>
