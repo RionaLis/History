@@ -18,12 +18,19 @@ sys.path.insert(0, HERE)
 
 from seed.common import norm_spans, auto_color, fmt_period, TYPE_NAMES  # noqa: E402
 from seed.regions import REGIONS, ERAS, LANE_INDEX  # noqa: E402
-from seed import ea, in_, sw, eu, af, am, oc  # noqa: E402
-from seed.events import EVENTS  # noqa: E402
+from seed import ea, in_, sw, eu, af, am, oc, world  # noqa: E402
+from seed import p_ea, p_in, p_sw, p_eu, p_af, p_am, p_oc  # noqa: E402
+from seed.events import EVENTS as REGION_EVENTS  # noqa: E402
 from seed.migrations import MIGRATIONS  # noqa: E402
 
-ENTITIES = (ea.ENTITIES + in_.ENTITIES + sw.ENTITIES + eu.ENTITIES
-            + af.ENTITIES + am.ENTITIES + oc.ENTITIES)
+
+ENTITIES = (world.ENTITIES
+            + ea.ENTITIES + in_.ENTITIES + sw.ENTITIES + eu.ENTITIES
+            + af.ENTITIES + am.ENTITIES + oc.ENTITIES
+            + p_ea.ENTITIES + p_in.ENTITIES + p_sw.ENTITIES + p_eu.ENTITIES
+            + p_af.ENTITIES + p_am.ENTITIES + p_oc.ENTITIES)
+
+EVENTS = world.EVENTS + REGION_EVENTS
 
 ICON_NAMES = {
     "pottery": "керамика / быт", "metal": "технология", "battle": "битва",

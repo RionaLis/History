@@ -15,6 +15,7 @@ const el = (tag, cls, html) => {
 const TYPE_LABEL = {
   state: 'государство', empire: 'империя', people: 'народ',
   culture: 'культура', polity: 'политии', colony: 'колония', confed: 'союз',
+  era: 'эпоха', nature: 'природный процесс',
 };
 const KIND_LABEL = { migration: 'переселение', invasion: 'вторжение', trade: 'торговля', diffusion: 'распространение' };
 
@@ -160,7 +161,7 @@ function syncView() {
   $('#spanOut').textContent = `${Math.round(b - a)} лет на экране`;
   $('#status').textContent =
     `${formatYear(a, true)} — ${formatYear(b, true)} · объектов: ${DATA.meta.counts.entities}, ` +
-    `событий: ${DATA.meta.counts.events}`;
+    `переселений: ${DATA.meta.counts.migrations}`;
   if (chart._kToSlider) $('#zoomRange').value = chart._kToSlider(chart.view.k);
   drawMinimap();
 }
@@ -529,11 +530,18 @@ function drawMinimap() {
   ctx.strokeStyle = 'rgba(70,90,120,0.6)'; ctx.lineWidth = 1; ctx.stroke();
   // метки тысячелетий
   ctx.font = '9px "Segoe UI", sans-serif'; ctx.fillStyle = '#7a7568'; ctx.textAlign = 'center';
-  for (let y = -3000; y <= 2000; y += 500) {
+  const yMin = DATA.meta?.yearMin ?? chart.scale.yearMin;
+  const yMax = DATA.meta?.yearMax ?? chart.scale.yearMax;
+  const step = (yMax - yMin) > 8000 ? 1000 : 500;
+  const first = Math.ceil(yMin / step) * step;
+  for (let y = first; y <= yMax; y += step) {
     const x = ux(y);
     ctx.strokeStyle = 'rgba(0,0,0,0.12)';
     ctx.beginPath(); ctx.moveTo(x, 11); ctx.lineTo(x, H); ctx.stroke();
-    if (y % 1000 === 0) ctx.fillText(y === 0 ? '0' : (y < 0 ? '−' + (-y / 1000) + 'т' : y), x, H - 1);
+    const major = (y % 2000 === 0) || (y === 0) || (step === 500 && y % 1000 === 0);
+    if (major && x > 10 && x < W - 10) {
+      ctx.fillText(y === 0 ? '0' : (y < 0 ? '−' + (-y / 1000) + 'т' : y), x, H - 1);
+    }
   }
   const [a, b] = chart.visibleYears();
   const x0 = ux(a), x1 = ux(b);

@@ -14,7 +14,7 @@
     <span class="brand-mark"></span>
     <div>
       <b>Хронолента мира</b>
-      <small>синхронологическая таблица · 3000 до н.э. — 2000 н.э.</small>
+      <small>синхронологическая таблица · 12000 до н.э. — 2000 н.э.</small>
     </div>
   </div>
   <nav class="nav">
@@ -33,10 +33,10 @@
 <div class="toolbar">
   <div class="group">
     <span class="lbl">Масштаб</span>
-    <button class="btn" id="zoomOut" title="Отдалить (колесо вниз)">−</button>
+    <button class="btn" id="zoomOut" title="Отдалить (Ctrl + колесо вниз)">−</button>
     <input type="range" id="zoomRange" min="0" max="1000" value="0" title="Масштаб времени">
-    <button class="btn" id="zoomIn" title="Приблизить (колесо вверх)">+</button>
-    <span class="readout" id="spanOut">5000 лет на экране</span>
+    <button class="btn" id="zoomIn" title="Приблизить (Ctrl + колесо вверх)">+</button>
+    <span class="readout" id="spanOut">14000 лет на экране</span>
   </div>
   <div class="group">
     <button class="btn chip" data-span="all">Вся история</button>
@@ -56,7 +56,7 @@
     <label class="switch"><input type="checkbox" id="chkLinear"> равномерная шкала</label>
   </div>
   <div class="group right">
-    <span class="hint">колесо — масштаб · тянуть — сдвиг · Shift+колесо — вертикаль · 2 клика — вписать</span>
+    <span class="hint">прокрутка — движение по таблице · щипок или Ctrl/⌘+колесо — растянуть шкалу · тянуть мышью — сдвиг · 2 клика — вписать объект</span>
   </div>
 </div>
 
@@ -83,9 +83,12 @@
       </div>
       <div class="col">
         <h4>Слои</h4>
-        <label class="switch"><input type="checkbox" id="chkEvents" checked> события</label>
+        <label class="switch"><input type="checkbox" id="chkEvents"> события</label>
         <label class="switch"><input type="checkbox" id="chkMig" checked> линии переселений</label>
         <label class="switch"><input type="checkbox" id="chkLabels" checked> подписи на лентах</label>
+        <p class="pop-hint">Значки событий сейчас отключены — таблица показывает народы,
+           культуры, государства и переселения. Включите слой «события», чтобы
+           вернуть их на схему.</p>
       </div>
     </div>
   </div>
@@ -105,6 +108,7 @@
       </div>
       <div class="col">
         <h4>Значки событий</h4>
+        <p class="pop-hint">Слой событий по умолчанию выключен: включите его в «Фильтрах».</p>
         <div id="legendIcons" class="legend-icons"></div>
       </div>
       <div class="col">

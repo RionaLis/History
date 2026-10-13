@@ -3,11 +3,16 @@ import { TimeScale, tickStep, formatYear } from './scale.js';
 import { computeLanes, layoutEntities } from './layout.js';
 import { drawIcon } from './icons.js';
 
+// Народы и археологические культуры рисуются «мягко»: подпись — просто текст
+// без плашки, лента почти без окантовки. Государства, империи и цивилизационные
+// области остаются в рамке.
+const SOFT_TYPES = new Set(['people', 'culture', 'nature']);
+
 const MIG_STYLE = {
-  migration: { color: '#5a4632', dash: [6, 4] },
-  invasion: { color: '#9c2b2b', dash: [] },
-  trade: { color: '#1f6f6a', dash: [2, 3] },
-  diffusion: { color: '#4a5a8a', dash: [1, 3] },
+  migration: { color: '#3f3528', dash: [5, 3.5] },
+  invasion: { color: '#8f2222', dash: [] },
+  trade: { color: '#1b5f5a', dash: [2, 2.6] },
+  diffusion: { color: '#3f4f7d', dash: [1, 2.6] },
 };
 
 function hexToRgb(hex) {
@@ -32,13 +37,15 @@ export class Chart {
     this.data = data;
     this.scale = new TimeScale(data.scaleAnchors, 'poster');
     this.view = { k: 1, ux: 0, vy: 0 };
-    this.geom = { gutterW: 196, axisH: 30, eraH: 16, pad: 0 };
+    // eraH = 0: лента эпох рисуется первой дорожкой региона «Весь мир» (wd_era)
+    this.geom = { gutterW: 196, axisH: 32, eraH: 0, pad: 0 };
+    this.eraLaneId = 'wd_era';
     this.rowUnit = 16;
     this.fitRows = true;
     this.filters = {
       regions: new Set(data.regions.map(r => r.id)),
       types: new Set(data.entities.map(e => e.type)),
-      showEvents: true, showMigrations: true, showLabels: true,
+      showEvents: false, showMigrations: true, showLabels: true,   // события пока скрыты
       iconTypes: new Set(data.icons.map(i => i.id)),
       query: '',
     };
@@ -50,6 +57,7 @@ export class Chart {
     this.onView = opts.onView || (() => {});
     this._eventBoxes = [];
     this._migPaths = [];
+    this._eraBoxes = [];
     this.rebuild();
     this._bindEvents();
   }
@@ -71,7 +79,7 @@ export class Chart {
     const wsum = regions.reduce((s, r) => s + r.lanes.reduce((a, l) => a + (l.weight || 1), 0), 0);
     const gaps = Math.max(0, regions.length - 1) * 7;
     const h = this.plotH() - gaps;
-    this.rowUnit = Math.max(9, Math.min(44, h / Math.max(1, wsum)));
+    this.rowUnit = Math.max(12, Math.min(44, h / Math.max(1, wsum)));
     this.fitRows = true;
     this.rebuild();
     this.view.vy = 0;
@@ -173,6 +181,7 @@ export class Chart {
     ctx.beginPath(); ctx.rect(px, py, pw, ph); ctx.clip();
     this._drawBands(ctx);
     this._drawGrid(ctx);
+    this._drawEraLane(ctx);
     this._drawRibbons(ctx);
     if (this.filters.showMigrations) this._drawMigrations(ctx);
     if (this.filters.showEvents) this._drawEvents(ctx);
@@ -261,10 +270,32 @@ export class Chart {
           }
           ctx.closePath();
           ctx.globalAlpha = dim ? 0.18 : 1;
-          ctx.fillStyle = (sel || hov) ? shade(e.color, 0.22) : e.color;
+          const soft = SOFT_TYPES.has(e.type);   // народы и культуры — мягкие поля
+          let fillStyle;
+          if (soft) {
+            if (!window.hatchPatterns) window.hatchPatterns = {};
+            if (!window.hatchPatterns[e.type]) {
+              const c = document.createElement('canvas');
+              c.width = 6; c.height = 6;
+              const ctx2 = c.getContext('2d');
+              ctx2.strokeStyle = e.color || '#5a4632';
+              ctx2.lineWidth = 0.7;
+              ctx2.beginPath();
+              ctx2.moveTo(0, 0);
+              ctx2.lineTo(6, 6);
+              ctx2.stroke();
+              window.hatchPatterns[e.type] = ctx2.createPattern(c, 'repeat');
+            }
+            fillStyle = window.hatchPatterns[e.type];
+          } else {
+            fillStyle = e.color;
+          }
+          ctx.fillStyle = (sel || hov) ? shade(e.color, 0.22) : fillStyle;
           ctx.fill();
-          ctx.lineWidth = sel ? 2 : (hov ? 1.4 : 0.6);
-          ctx.strokeStyle = sel ? '#1b2a4a' : (hov ? 'rgba(20,25,40,.75)' : 'rgba(30,35,45,0.35)');
+          ctx.lineWidth = sel ? 2 : (hov ? 1.4 : (soft ? 1 : 0.6));
+          ctx.strokeStyle = sel ? '#1b2a4a'
+            : (hov ? 'rgba(20,25,40,.75)'
+                   : (soft ? 'rgba(30,35,45,0.5)' : 'rgba(30,35,45,0.35)'));
           ctx.stroke();
           ctx.globalAlpha = 1;
         }
@@ -318,113 +349,208 @@ export class Chart {
       const primary = bestOf.get(c.e.id) === c;
       const cap = primary ? 15 : 10.5;
       const fs = Math.max(8, Math.min(cap, c.hpx * 0.72));
-      ctx.font = `${fs < 10 ? '' : '600 '}${fs.toFixed(1)}px "Segoe UI", system-ui, sans-serif`;
+      const soft = SOFT_TYPES.has(c.e.type);   // народ или культура — просто текст
+      const setFont = (ls) => {
+        ctx.font = soft
+          ? `${fs.toFixed(1)}px "Segoe UI", system-ui, sans-serif`
+          : `${fs < 10 ? '' : '600 '}${fs.toFixed(1)}px "Segoe UI", system-ui, sans-serif`;
+        ctx.letterSpacing = `${ls.toFixed(2)}px`;
+      };
+      let ls = soft ? Math.max(0.3, fs * 0.08) : 0;
+      setFont(ls);
       let text = c.e.label || c.e.name;
       let tw = ctx.measureText(text).width;
+      // на длинных полосах народов текст «растягивается» разрядкой, как на плакате
+      if (soft && text.length > 2 && tw < (c.w - 12) * 0.5) {
+        const add = Math.min(fs * 0.5, (c.w - 12) * 0.55 / (text.length - 1));
+        if (add > ls) { ls = add; setFont(ls); tw = ctx.measureText(text).width; }
+      }
+      if (tw > c.w - 6) {
+        if (ls > 0.3) { ls = soft ? Math.max(0.3, fs * 0.08) : 0; setFont(ls); tw = ctx.measureText(text).width; }
+      }
       if (tw > c.w - 6) {
         const short = text.split(/[(,—:]/)[0].trim();
         const sw = ctx.measureText(short).width;
         if (sw <= c.w - 6) { text = short; tw = sw; } else continue;
       }
-      const box = { x0: c.cx - tw / 2 - 2, x1: c.cx + tw / 2 + 2,
+      const cx = c.cx - ls / 2;   // measureText учитывает разрядку после последней буквы
+      const box = { x0: cx - tw / 2 - 2, x1: cx + tw / 2 + 2,
                     y0: c.y - fs * 0.62, y1: c.y + fs * 0.62 };
       if (hits(box)) continue;
       drawn.push(box);
-      const light = luminance(c.e.color) > 0.62;
-      ctx.lineWidth = 2.6;
-      ctx.strokeStyle = light ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.35)';
-      ctx.strokeText(text, c.cx, c.y);
-      ctx.fillStyle = light ? '#1a1f2b' : '#ffffff';
-      ctx.fillText(text, c.cx, c.y);
+      const light = luminance(c.e.color) > (soft ? 0.38 : 0.62);
+      if (soft) {
+        // народы и культуры подписаны прямо по полю, без плашки-обводки
+        ctx.fillStyle = light ? 'rgba(26,31,43,0.9)' : 'rgba(255,255,255,0.95)';
+        ctx.fillText(text, cx, c.y);
+      } else {
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = light ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.35)';
+        ctx.strokeText(text, cx, c.y);
+        ctx.fillStyle = light ? '#1a1f2b' : '#ffffff';
+        ctx.fillText(text, cx, c.y);
+      }
     }
+    ctx.letterSpacing = '0px';
   }
 
+  /** Точки пути: x — по году, y — середина дорожки. Путь всегда идёт
+   *  слева направо (по ходу времени), поэтому линия не может «вернуться»
+   *  назад и закрутиться петлёй. */
+  _migPoints(m) {
+    const out = [];
+    let lastX = -Infinity;
+    for (const [year, laneId] of m.points) {
+      const lane = this.lanesLayout.byId.get(laneId);
+      if (!lane) continue;
+      let x = this.xOf(year);
+      if (out.length && x < lastX + 26) x = lastX + 26;   // минимальный шаг вправо
+      lastX = x;
+      out.push([x, this.yOf(lane, 0.5)]);
+    }
+    return out;
+  }
+
+  /** Линии переселений, вторжений и торговых путей — тонкие стрелки
+   *  с наконечником в точке прихода, как на плакате-образце. */
   _drawMigrations(ctx) {
     this._migPaths = [];
     const py = this.plotY(), ph = this.plotH();
+    const px = this.plotX(), pw = this.plotW();
+    const drawnLabels = [];
     for (const m of this.data.migrations) {
-      const pts = [];
-      for (const [year, laneId] of m.points) {
-        const lane = this.lanesLayout.byId.get(laneId);
-        if (!lane) continue;
-        pts.push([this.xOf(year), this.yOf(lane, 0.5)]);
-      }
+      const pts = this._migPoints(m);
       if (pts.length < 2) continue;
-      const vis = pts.some(p => p[1] > py - 40 && p[1] < py + ph + 40);
-      if (!vis) continue;
+      if (pts[pts.length - 1][0] < px - 80 || pts[0][0] > px + pw + 80) continue;
+      if (!pts.some(p => p[1] > py - 60 && p[1] < py + ph + 60)) continue;
+      // все миграции отображаются независимо от горизонтального spans
+      const spanX = pts[pts.length - 1][0] - pts[0][0];
+      const ys = pts.map(p => p[1]);
+      const spanY = Math.max(...ys) - Math.min(...ys);
+
       const st = MIG_STYLE[m.kind] || MIG_STYLE.migration;
       const hov = this.hover && this.hover.kind === 'migration' && this.hover.id === m.id;
       const dim = this.highlightIds && !this.highlightIds.has(m.id);
+      const poly = this._sampleFlow(pts);
+
       ctx.save();
-      ctx.globalAlpha = dim ? 0.12 : (hov ? 1 : 0.5);
-      ctx.setLineDash(st.dash);
-      ctx.lineWidth = hov ? 3.2 : 1.6;
-      ctx.strokeStyle = st.color;
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.beginPath();
-      this._flowCurve(ctx, pts);
-      ctx.stroke();
+      ctx.globalAlpha = dim ? 0.1 : 1;
+      // светлая подложка — чтобы тонкая линия читалась поверх лент
       ctx.setLineDash([]);
-      // наконечник
-      const n = pts.length;
-      const [ax, ay] = pts[n - 2], [bx, by] = pts[n - 1];
-      const ang = Math.atan2((by - ay) * 0.35, Math.max(24, bx - ax));
-      const s = hov ? 11 : 8;
-      ctx.beginPath();
-      ctx.moveTo(bx, by);
-      ctx.lineTo(bx - s * Math.cos(ang - 0.42), by - s * Math.sin(ang - 0.42));
-      ctx.lineTo(bx - s * Math.cos(ang + 0.42), by - s * Math.sin(ang + 0.42));
-      ctx.closePath();
-      ctx.fillStyle = st.color; ctx.fill();
-      // подпись вдоль самого длинного сегмента
+      ctx.lineWidth = (hov ? 3 : 1.4) + 1.4;
+      ctx.strokeStyle = 'rgba(255,255,255,0.38)';
+      ctx.beginPath(); this._flowCurve(ctx, pts); ctx.stroke();
+      // сама линия
+      ctx.globalAlpha = dim ? 0.12 : (hov ? 1 : 0.8);
+      ctx.setLineDash(hov ? [] : st.dash);
+      ctx.lineWidth = hov ? 2.6 : 1.3;
+      ctx.strokeStyle = st.color;
+      ctx.beginPath(); this._flowCurve(ctx, pts); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // точка выхода, наконечники на промежуточных остановках и в конце пути
+      ctx.fillStyle = st.color;
+      ctx.beginPath(); ctx.arc(poly[0][0], poly[0][1], hov ? 3.2 : 2.2, 0, Math.PI * 2); ctx.fill();
+      const per = Math.round((poly.length - 1) / (pts.length - 1));
+      for (let k = 1; k < pts.length; k++) {
+        const idx = Math.min(poly.length - 1, k * per);
+        this._arrowAt(ctx, poly, idx, k === pts.length - 1 ? (hov ? 10 : 7.5) : 5.5, st.color);
+      }
+
+      // подпись вдоль линии
       if (this.filters.showLabels && !dim) {
-        let bi = 0, bl = 0;
-        for (let i = 1; i < n; i++) {
-          const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-          if (d > bl) { bl = d; bi = i; }
-        }
-        if (bl > 80) {
-          const mx = (pts[bi][0] + pts[bi - 1][0]) / 2, my = (pts[bi][1] + pts[bi - 1][1]) / 2;
-          const dx = pts[bi][0] - pts[bi - 1][0], dy = pts[bi][1] - pts[bi - 1][1];
-          let a = Math.atan2(dy, Math.abs(dx) < 30 ? (dx < 0 ? -30 : 30) : dx);
-          a = Math.max(-0.9, Math.min(0.9, a));
-          ctx.globalAlpha = dim ? 0.15 : 0.95;
-          ctx.translate(mx, my); ctx.rotate(a);
-          ctx.font = '600 10.5px "Segoe UI", system-ui, sans-serif';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-          ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-          ctx.strokeText(m.name, 0, -3);
-          ctx.fillStyle = st.color; ctx.fillText(m.name, 0, -3);
+        const place = this._pointAlong(poly, 0.52);
+        if (place && place.x > px + 10 && place.x < px + pw - 10) {
+          const fs = hov ? 11 : 10;
+          ctx.font = `italic ${fs}px "Segoe UI", system-ui, sans-serif`;
+          const tw = ctx.measureText(m.name).width;
+          const box = { x0: place.x - tw / 2, x1: place.x + tw / 2,
+                        y0: place.y - fs - 6, y1: place.y + 2 };
+          const clash = drawnLabels.some(d =>
+            box.x0 < d.x1 && box.x1 > d.x0 && box.y0 < d.y1 && box.y1 > d.y0);
+          if (!clash) {
+            drawnLabels.push(box);
+            ctx.globalAlpha = 1;
+            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillStyle = st.color;
+            if (Math.abs(place.a) > 0.95) {
+              // крутая стрелка: подпись не вдоль линии, а горизонтально сбоку
+              ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+              ctx.strokeText(m.name, place.x + 7, place.y);
+              ctx.fillText(m.name, place.x + 7, place.y);
+            } else {
+              const a = Math.max(-0.6, Math.min(0.6, place.a));
+              ctx.translate(place.x, place.y); ctx.rotate(a);
+              ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+              ctx.strokeText(m.name, 0, -4);
+              ctx.fillText(m.name, 0, -4);
+            }
+          }
         }
       }
       ctx.restore();
-      this._migPaths.push({ id: m.id, pts: this._sampleFlow(pts), obj: m });
+      this._migPaths.push({ id: m.id, pts: poly, obj: m });
     }
   }
 
-  /** Плавная «потоковая» кривая с горизонтальными касательными:
-   *  переходы между далёкими дорожками читаются как S-образные дуги,
-   *  а не как вертикальные штрихи через всю таблицу. */
+  /** Наконечник стрелки в узле ломаной — по касательной к пути. */
+  _arrowAt(ctx, poly, idx, size, color) {
+    const i = Math.max(1, Math.min(poly.length - 1, idx));
+    const [ax, ay] = poly[i - 1], [bx, by] = poly[i];
+    const ang = Math.atan2(by - ay, bx - ax);
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(bx - size * Math.cos(ang - 0.4), by - size * Math.sin(ang - 0.4));
+    ctx.lineTo(bx - size * Math.cos(ang + 0.4), by - size * Math.sin(ang + 0.4));
+    ctx.closePath();
+    ctx.fillStyle = color; ctx.fill();
+  }
+
+  /** Точка на ломаной на доле t её длины + угол наклона. */
+  _pointAlong(poly, t) {
+    let total = 0;
+    const seg = [];
+    for (let i = 1; i < poly.length; i++) {
+      const d = Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]);
+      seg.push(d); total += d;
+    }
+    if (total < 70) return null;
+    let want = total * t, acc = 0;
+    for (let i = 1; i < poly.length; i++) {
+      if (acc + seg[i - 1] >= want) {
+        const f = seg[i - 1] ? (want - acc) / seg[i - 1] : 0;
+        const x = poly[i - 1][0] + (poly[i][0] - poly[i - 1][0]) * f;
+        const y = poly[i - 1][1] + (poly[i][1] - poly[i - 1][1]) * f;
+        const a = Math.atan2(poly[i][1] - poly[i - 1][1], poly[i][0] - poly[i - 1][0]);
+        return { x, y, a };
+      }
+      acc += seg[i - 1];
+    }
+    return null;
+  }
+
+  /** Плавная кривая с горизонтальными касательными. Смещение контрольных
+   *  точек не превышает половины шага по x, поэтому путь монотонен во
+   *  времени: стрелка не заворачивает назад. */
   _flowCurve(ctx, pts) {
     ctx.moveTo(pts[0][0], pts[0][1]);
     for (let i = 1; i < pts.length; i++) {
       const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
-      const dy = Math.abs(y1 - y0);
-      const off = Math.max(16, Math.min(62, Math.abs(x1 - x0) * 0.42 + dy * 0.07));
+      const off = (x1 - x0) * 0.45;
       ctx.bezierCurveTo(x0 + off, y0, x1 - off, y1, x1, y1);
     }
   }
 
-  /** Та же кривая, но в виде ломаной — для проверки попадания курсора. */
+  /** Та же кривая ломаной — для подписей и проверки попадания курсора. */
   _sampleFlow(pts) {
     const out = [pts[0]];
     for (let i = 1; i < pts.length; i++) {
       const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
-      const dy = Math.abs(y1 - y0);
-      const off = Math.max(16, Math.min(62, Math.abs(x1 - x0) * 0.42 + dy * 0.07));
+      const off = (x1 - x0) * 0.45;
       const c1 = [x0 + off, y0], c2 = [x1 - off, y1];
-      for (let s = 1; s <= 10; s++) {
-        const t = s / 10, u = 1 - t;
+      for (let s = 1; s <= 12; s++) {
+        const t = s / 12, u = 1 - t;
         out.push([
           u * u * u * x0 + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * x1,
           u * u * u * y0 + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * y1,
@@ -448,12 +574,13 @@ export class Chart {
   _drawEvents(ctx) {
     this._eventBoxes = [];
     const py = this.plotY(), ph = this.plotH(), px = this.plotX(), pw = this.plotW();
-    const k = this.view.k;
+    const [vy0, vy1] = this.visibleYears();
+    const span = vy1 - vy0;              // сколько лет сейчас на экране
     const byLane = new Map();
     for (const ev of this.data.events) {
       if (!this.filters.iconTypes.has(ev.icon)) continue;
-      if (ev.scale === 1 && k < 2.5) continue;
-      if (ev.scale === 2 && k < 1.35) continue;
+      if (ev.scale === 1 && span > 1200) continue;
+      if (ev.scale === 2 && span > 4000) continue;
       const lane = this.lanesLayout.byId.get(ev.lane);
       if (!lane) continue;
       const x = this.xOf(ev.year);
@@ -580,7 +707,8 @@ export class Chart {
     }
     ctx.restore();
 
-    // полоса эпох
+    // полоса эпох в шапке (включается только при geom.eraH > 0)
+    if (eh <= 0) return;
     ctx.save();
     ctx.beginPath(); ctx.rect(px, ah, pw, eh); ctx.clip();
     ctx.fillStyle = '#e4e0d6'; ctx.fillRect(px, ah, pw, eh);
@@ -605,6 +733,49 @@ export class Chart {
     ctx.font = '600 10.5px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText('Эпохи', 10, ah + eh / 2);
+  }
+
+  /** Ленты эпох внутри дорожки «Эпохи и периоды» региона «Весь мир». */
+  _drawEraLane(ctx) {
+    this._eraBoxes = [];
+    const lane = this.lanesLayout.byId.get(this.eraLaneId);
+    if (!lane) return;
+    const px = this.plotX(), pw = this.plotW();
+    const top = this.yOf(lane, 0.04), h = lane.h * 0.92;
+    if (top + h < this.plotY() - 2 || top > this.plotY() + this.plotH() + 2) return;
+    ctx.save();
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    for (const era of this.data.eras) {
+      const x0 = this.xOf(era.start), x1 = this.xOf(era.end);
+      if (x1 < px || x0 > px + pw) continue;
+      const hov = this.hover && this.hover.kind === 'era' && this.hover.id === era.id;
+      ctx.fillStyle = era.color;
+      ctx.globalAlpha = hov ? 1 : 0.92;
+      ctx.fillRect(x0, top, x1 - x0, h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = hov ? '#1b1f28' : 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = hov ? 1.6 : 1;
+      ctx.beginPath(); ctx.moveTo(x1, top); ctx.lineTo(x1, top + h); ctx.stroke();
+      const a = Math.max(x0, px), b = Math.min(x1, px + pw);
+      ctx.font = `600 ${Math.min(12, Math.max(9, h * 0.62))}px "Segoe UI", system-ui, sans-serif`;
+      const room = b - a - 10;
+      let label = era.name;
+      if (ctx.measureText(label).width > room) {
+        label = '';
+        for (const word of era.name.split(' ')) {
+          const probe = label ? label + ' ' + word : word;
+          if (ctx.measureText(probe + '…').width > room) break;
+          label = probe;
+        }
+        if (label && label !== era.name) label += '…';
+      }
+      if (label) {
+        ctx.fillStyle = 'rgba(22,25,33,0.88)';
+        ctx.fillText(label, (a + b) / 2, top + h / 2 + 0.5);
+      }
+      this._eraBoxes.push({ id: era.id, obj: era, x0, x1, y0: top, y1: top + h });
+    }
+    ctx.restore();
   }
 
   _drawScrollbar(ctx) {
@@ -640,6 +811,11 @@ export class Chart {
     }
     for (const b of this._eventBoxes) {
       if (Math.hypot(mx - b.x, my - b.y) <= b.r) return { kind: 'event', id: b.id, obj: b.obj };
+    }
+    for (const b of this._eraBoxes) {
+      if (mx >= b.x0 && mx <= b.x1 && my >= b.y0 && my <= b.y1) {
+        return { kind: 'era', id: b.id, obj: b.obj };
+      }
     }
     for (const m of this._migPaths) {
       for (let i = 1; i < m.pts.length; i++) {
@@ -741,17 +917,28 @@ export class Chart {
       else if (hit && hit.kind === 'era') this.zoomToRange(hit.obj.start, hit.obj.end, 0.05);
     });
 
+    // Колесо и тачпад: обычная прокрутка перемещает полотно (как в карте или
+    // таблице), а щипок тачпада / Ctrl(⌘)+колесо растягивают шкалу времени.
     c.addEventListener('wheel', ev => {
       ev.preventDefault();
       const r = c.getBoundingClientRect();
       const mx = ev.clientX - r.left;
-      if (ev.shiftKey || ev.altKey) {
-        this.view.vy += ev.deltaY;
-        this.clampView(); this.draw(); this.onView(this);
-      } else {
-        const f = Math.pow(1.0016, -ev.deltaY * (ev.ctrlKey ? 0.35 : 1));
+      const unit = ev.deltaMode === 1 ? 18 : ev.deltaMode === 2 ? this.plotH() : 1;
+      const dx = ev.deltaX * unit, dy = ev.deltaY * unit;
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) {
+        // щипок тачпада браузер присылает как wheel с ctrlKey
+        const soft = (ev.ctrlKey || ev.metaKey) && !ev.altKey ? 0.42 : 1;
+        const f = Math.pow(1.0038, -dy * soft);
         this.zoomAt(Math.max(this.plotX(), mx), f);
+        return;
       }
+      if (ev.shiftKey) {            // привычная горизонтальная прокрутка
+        this.view.ux += (dx + dy) / this.contentW();
+      } else {
+        this.view.vy += dy;
+        this.view.ux += dx / this.contentW();
+      }
+      this.clampView(); this.draw(); this.onView(this);
     }, { passive: false });
 
     c.addEventListener('mouseleave', () => this._setHover(null, null));

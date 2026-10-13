@@ -6,6 +6,7 @@ import { ICON_LABELS, drawIcon } from './icons.js';
 export const TYPE_LABEL = {
   state: 'государство', empire: 'империя', people: 'народ',
   culture: 'культура', polity: 'политии', colony: 'колония', confed: 'союз',
+  era: 'эпоха', nature: 'природный процесс',
 };
 export const KIND_LABEL = {
   migration: 'переселение', invasion: 'вторжение', trade: 'торговля', diffusion: 'распространение',
@@ -25,7 +26,7 @@ export function topbar(active) {
                  ['pages/about.html', 'О проекте']];
   return `<header class="topbar">
     <div class="brand"><span class="brand-mark"></span>
-      <div><b>Хронолента мира</b><small>синхронологическая таблица · 3000 до н.э. — 2000 н.э.</small></div>
+      <div><b>Хронолента мира</b><small>синхронологическая таблица · 12000 до н.э. — 2000 н.э.</small></div>
     </div>
     <nav class="nav">${links.map(([h, t]) =>
       `<a class="${t === active ? 'active' : ''}" href="${BASE}${h}">${t}</a>`).join('')}</nav>

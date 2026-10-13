@@ -188,7 +188,7 @@ def main():
     out = {
         "meta": {
             "title": "Синхронологическая таблица всемирной истории",
-            "yearMin": -3000, "yearMax": 2000,
+            "yearMin": SCALE_ANCHORS[0][0], "yearMax": SCALE_ANCHORS[-1][0],
             "counts": {"regions": len(regions), "lanes": len(lane_ids),
                        "entities": len(entities), "events": len(events),
                        "migrations": len(migrations), "eras": len(eras)},

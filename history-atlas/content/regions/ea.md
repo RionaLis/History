@@ -3,7 +3,7 @@ id: ea
 name: Центральная, Восточная и Юго-Восточная Евразия
 short: Восточная Евразия
 kind: region
-order: 2
+order: 7
 color: "#5c6bc0"
 hue: 235
 lanes: [{"id": "ea_sea", "name": "Индокитай", "weight": 1.2}, {"id": "ea_mkj", "name": "Корея, Япония, Маньчжурия", "weight": 1.3}, {"id": "ea_ncn", "name": "Северный Китай", "weight": 1.6}, {"id": "ea_scn", "name": "Южный Китай", "weight": 1.2}, {"id": "ea_tib", "name": "Тибет и Монголия", "weight": 1.2}, {"id": "ea_cas", "name": "Центральная Евразия", "weight": 1.3}]
