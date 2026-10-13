@@ -1,12 +1,12 @@
 // Отрисовка и интерактив синхронологической таблицы.
-import { TimeScale, tickStep, formatYear } from './scale.js';
+import { TimeScale, ticksForRange, formatAxisYear } from './scale.js';
 import { computeLanes, layoutEntities } from './layout.js';
 import { drawIcon } from './icons.js';
 
-// Народы и археологические культуры рисуются «мягко»: подпись — просто текст
-// без плашки, лента почти без окантовки. Государства, империи и цивилизационные
-// области остаются в рамке.
-const SOFT_TYPES = new Set(['people', 'culture', 'nature']);
+// Гоминины, народы и археологические культуры рисуются «мягко»: подпись — просто
+// текст без плашки, лента почти без окантовки. Государства, империи и
+// цивилизационные области остаются в рамке.
+const SOFT_TYPES = new Set(['people', 'culture', 'nature', 'hominin']);
 
 const MIG_STYLE = {
   migration: { color: '#3f3528', dash: [5, 3.5] },
@@ -36,7 +36,11 @@ export class Chart {
     this.ctx = canvas.getContext('2d');
     this.data = data;
     this.scale = new TimeScale(data.scaleAnchors, 'poster');
-    this.view = { k: 1, ux: 0, vy: 0 };
+    this.maxZoom = 100000;
+    const defaultRange = data.meta?.defaultRange || [-12000, 2000];
+    const defaultU0 = this.scale.unit(defaultRange[0]);
+    const defaultU1 = this.scale.unit(defaultRange[1]);
+    this.view = { k: 1 / (defaultU1 - defaultU0), ux: defaultU0, vy: 0 };
     // eraH = 0: лента эпох рисуется первой дорожкой региона «Весь мир» (wd_era)
     this.geom = { gutterW: 196, axisH: 32, eraH: 0, pad: 0 };
     this.eraLaneId = 'wd_era';
@@ -102,7 +106,7 @@ export class Chart {
 
   clampView() {
     const v = this.view;
-    v.k = Math.max(1, Math.min(260, v.k));
+    v.k = Math.max(1, Math.min(this.maxZoom, v.k));
     v.ux = Math.max(0, Math.min(1 - 1 / v.k, v.ux));
     const maxVy = Math.max(0, this.lanesLayout.height - this.plotH());
     v.vy = Math.max(0, Math.min(maxVy, v.vy));
@@ -110,6 +114,19 @@ export class Chart {
 
   visibleYears() {
     return [this.yearOf(this.plotX()), this.yearOf(this.plotX() + this.plotW())];
+  }
+
+  /** Сменить проекцию, не меняя видимые крайние даты. */
+  setScaleMode(mode) {
+    if (this.scale.mode === mode) return;
+    const [yearA, yearB] = this.visibleYears();
+    this.scale.setMode(mode);
+    const u0 = this.scale.unit(yearA), u1 = this.scale.unit(yearB);
+    this.view.k = 1 / Math.max(1e-12, u1 - u0);
+    this.view.ux = u0;
+    this.clampView();
+    this.draw();
+    this.onView(this);
   }
 
   /** Подобрать масштаб так, чтобы на экране было ~span лет вокруг центра. */
@@ -226,15 +243,11 @@ export class Chart {
   _drawGrid(ctx) {
     const px = this.plotX(), pw = this.plotW(), py = this.plotY(), ph = this.plotH();
     const [ya, yb] = this.visibleYears();
-    const ypp = (yb - ya) / pw;
-    const step = tickStep(ypp, 90);
-    const major = step * 5;
-    const start = Math.ceil(ya / step) * step;
+    const ticks = ticksForRange(this.scale, ya, yb, pw, 90);
     ctx.lineWidth = 1;
-    for (let y = start; y <= yb; y += step) {
-      const x = Math.round(this.xOf(y)) + 0.5;
-      const isMajor = Math.abs(y % major) < 1e-6;
-      ctx.strokeStyle = isMajor ? 'rgba(40,40,50,0.22)' : 'rgba(40,40,50,0.09)';
+    for (const tick of ticks) {
+      const x = Math.round(this.xOf(tick.year)) + 0.5;
+      ctx.strokeStyle = tick.major ? 'rgba(40,40,50,0.22)' : 'rgba(40,40,50,0.09)';
       ctx.beginPath(); ctx.moveTo(x, py); ctx.lineTo(x, py + ph); ctx.stroke();
     }
     // рубеж эр
@@ -680,21 +693,19 @@ export class Chart {
     ctx.fillText('Годы', 10, ah / 2);
 
     const [ya, yb] = this.visibleYears();
-    const ypp = (yb - ya) / pw;
-    const step = tickStep(ypp, 95);
-    const start = Math.ceil(ya / step) * step;
+    const ticks = ticksForRange(this.scale, ya, yb, pw, 95);
     ctx.save();
     ctx.beginPath(); ctx.rect(px, 0, pw, ah); ctx.clip();
     ctx.textAlign = 'center';
     let lastRight = -1e9;
-    for (let y = start; y <= yb; y += step) {
+    for (const tick of ticks) {
+      const y = tick.year;
       const x = this.xOf(y);
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.beginPath(); ctx.moveTo(x, ah - 6); ctx.lineTo(x, ah); ctx.stroke();
-      const major = Math.abs(y % (step * 5)) < 1e-6;
-      ctx.font = `${major ? '700 13' : '400 11'}px "Segoe UI", system-ui, sans-serif`;
+      ctx.font = `${tick.major ? '700 13' : '400 11'}px "Segoe UI", system-ui, sans-serif`;
       ctx.fillStyle = y === 0 ? '#ffd27d' : '#f2efe7';
-      const label = y === 0 ? 'н.э.' : (y < 0 ? `−${-y}` : `${y}`);
+      const label = formatAxisYear(y, tick.step);
       const half = ctx.measureText(label).width / 2;
       const align = x - half < px + 2 ? 'left' : (x + half > px + pw - 2 ? 'right' : 'center');
       const lx = align === 'left' ? px + 3 : (align === 'right' ? px + pw - 3 : x);

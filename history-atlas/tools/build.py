@@ -17,7 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-from seed.regions import SCALE_ANCHORS, ICONS  # noqa: E402
+from seed.regions import SCALE_ANCHORS, ICONS, DEFAULT_VISIBLE_RANGE  # noqa: E402
 
 try:
     import yaml  # type: ignore
@@ -189,6 +189,7 @@ def main():
         "meta": {
             "title": "Синхронологическая таблица всемирной истории",
             "yearMin": SCALE_ANCHORS[0][0], "yearMax": SCALE_ANCHORS[-1][0],
+            "defaultRange": DEFAULT_VISIBLE_RANGE,
             "counts": {"regions": len(regions), "lanes": len(lane_ids),
                        "entities": len(entities), "events": len(events),
                        "migrations": len(migrations), "eras": len(eras)},

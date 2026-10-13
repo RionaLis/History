@@ -22,7 +22,7 @@ const md = await (await fetch(BASE + 'content/articles/about.md', { cache: 'no-c
 $('#art').innerHTML = renderMarkdown(stripFrontmatter(md).body);
 const c = data.meta.counts;
 const items = [['Макро-регионов', c.regions], ['Суб-регионов (дорожек)', c.lanes],
-  ['Народов и государств', c.entities], ['Событий', c.events],
+  ['Сущностей', c.entities], ['Событий', c.events],
   ['Линий переселений', c.migrations], ['Эпох', c.eras]];
 $('#stats').innerHTML = items.map(([k, v]) =>
   `<div class="card"><h3>${v}</h3><p class="tagline">${k}</p></div>`).join('');

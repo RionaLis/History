@@ -1,6 +1,6 @@
 // Главная страница: загрузка данных, панель управления, подсказки, статьи.
 import { Chart } from './chart.js';
-import { formatYear, formatSpan } from './scale.js';
+import { formatYear, formatSpan, formatAxisYear, ticksForRange } from './scale.js';
 import { drawIcon, ICON_LABELS } from './icons.js';
 import { renderMarkdown, stripFrontmatter } from './md.js';
 
@@ -15,7 +15,7 @@ const el = (tag, cls, html) => {
 const TYPE_LABEL = {
   state: 'государство', empire: 'империя', people: 'народ',
   culture: 'культура', polity: 'политии', colony: 'колония', confed: 'союз',
-  era: 'эпоха', nature: 'природный процесс',
+  era: 'эпоха', nature: 'природный процесс', hominin: 'вид / линия гоминин',
 };
 const KIND_LABEL = { migration: 'переселение', invasion: 'вторжение', trade: 'торговля', diffusion: 'распространение' };
 
@@ -101,8 +101,8 @@ function showTip(hit, ev) {
 /* ------------------------------------------------ тулбар */
 function wireToolbar() {
   const zr = $('#zoomRange');
-  const kToSlider = k => Math.round(1000 * Math.log(k) / Math.log(260));
-  const sliderToK = v => Math.pow(260, v / 1000);
+  const kToSlider = k => Math.round(1000 * Math.log(k) / Math.log(chart.maxZoom));
+  const sliderToK = v => Math.pow(chart.maxZoom, v / 1000);
   zr.addEventListener('input', () => {
     const c = (chart.visibleYears()[0] + chart.visibleYears()[1]) / 2;
     chart.view.k = sliderToK(+zr.value);
@@ -121,9 +121,7 @@ function wireToolbar() {
   $('#rowRange').addEventListener('input', e => chart.setRowUnit(+e.target.value));
   $('#fitRows').onclick = () => { chart.fitRowsToView(); $('#rowRange').value = Math.round(chart.rowUnit); };
   $('#chkLinear').onchange = e => {
-    const c = (chart.visibleYears()[0] + chart.visibleYears()[1]) / 2;
-    chart.scale.setMode(e.target.checked ? 'linear' : 'poster');
-    chart.centerOn(c); drawMinimap();
+    chart.setScaleMode(e.target.checked ? 'linear' : 'poster');
   };
   const togglePop = (id, btn) => {
     const pop = $('#' + id);
@@ -528,19 +526,21 @@ function drawMinimap() {
   ctx.closePath();
   ctx.fillStyle = 'rgba(70,90,120,0.28)'; ctx.fill();
   ctx.strokeStyle = 'rgba(70,90,120,0.6)'; ctx.lineWidth = 1; ctx.stroke();
-  // метки тысячелетий
+  // Метки всей шкалы: плотность учитывает нелинейные участки и линейный режим.
   ctx.font = '9px "Segoe UI", sans-serif'; ctx.fillStyle = '#7a7568'; ctx.textAlign = 'center';
   const yMin = DATA.meta?.yearMin ?? chart.scale.yearMin;
   const yMax = DATA.meta?.yearMax ?? chart.scale.yearMax;
-  const step = (yMax - yMin) > 8000 ? 1000 : 500;
-  const first = Math.ceil(yMin / step) * step;
-  for (let y = first; y <= yMax; y += step) {
-    const x = ux(y);
+  const ticks = ticksForRange(chart.scale, yMin, yMax, W, 46);
+  let lastLabelRight = -Infinity;
+  for (const tick of ticks) {
+    const x = ux(tick.year);
     ctx.strokeStyle = 'rgba(0,0,0,0.12)';
     ctx.beginPath(); ctx.moveTo(x, 11); ctx.lineTo(x, H); ctx.stroke();
-    const major = (y % 2000 === 0) || (y === 0) || (step === 500 && y % 1000 === 0);
-    if (major && x > 10 && x < W - 10) {
-      ctx.fillText(y === 0 ? '0' : (y < 0 ? '−' + (-y / 1000) + 'т' : y), x, H - 1);
+    const label = formatAxisYear(tick.year, tick.step);
+    const labelWidth = ctx.measureText(label).width;
+    if (x > 8 && x < W - 8 && x - labelWidth / 2 > lastLabelRight + 5) {
+      ctx.fillText(label, x, H - 1);
+      lastLabelRight = x + labelWidth / 2;
     }
   }
   const [a, b] = chart.visibleYears();
