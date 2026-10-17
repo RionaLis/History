@@ -3,6 +3,7 @@ import { Chart } from './chart.js';
 import { formatYear, formatSpan, formatAxisYear, ticksForRange } from './scale.js';
 import { drawIcon, ICON_LABELS } from './icons.js';
 import { renderMarkdown, stripFrontmatter } from './md.js';
+import { parseHistoricalYear } from './year-input.js';
 
 const $ = s => document.querySelector(s);
 const el = (tag, cls, html) => {
@@ -20,6 +21,9 @@ const TYPE_LABEL = {
 const KIND_LABEL = { migration: 'переселение', invasion: 'вторжение', trade: 'торговля', diffusion: 'распространение' };
 
 let DATA = null, chart = null;
+let densityCache = null, densityCacheMode = null, densityCacheEntities = null;
+let minimapDrawFrame = 0, pendingTableViewFrame = 0, pendingTableView = null;
+let filterUpdateFrame = 0, filterNeedsRebuild = false, filterNeedsFit = false;
 
 init();
 
@@ -29,6 +33,9 @@ async function init() {
   window.DATA = DATA;
 
   chart = new Chart($('#chart'), DATA, {
+    // На главной таблица растёт вниз до последней дорожки; отдельная страница
+    // table.html остаётся в полноэкранном режиме с прокруткой внутри полотна.
+    autoHeight: !!document.querySelector('.table-zone'),
     onHover: showTip,
     onSelect: hit => {
       if (hit.kind === 'entity') openDoc(hit.obj, 'entity');
@@ -51,25 +58,17 @@ async function init() {
   wireSearch();
   wirePanel();
   wireMinimap();
+  wireYearJump();
   syncView();
-  // Смена даты ЛЮБЫМ способом (стрелки ←/→, шаги ленты ‹/›, чипы-прыжки,
-  // карточки, консоль) → сразу перерисовать полосу: рамка окна и красная
-  // метка даты должны двигаться всегда, а не только когда меняется окно.
-  (function stripFollowsYear() {
-    const attach = () => {
-      if (!(window.chronomap && typeof window.chronomap.onYearChange === 'function')) {
-        setTimeout(attach, 250);   // карта ещё загружается — попробуем позже
-        return;
-      }
-      window.chronomap.onYearChange(() => {
-        try { drawMinimap(); } catch (e) { /* полоса ещё не готова */ }
-      });
-    };
-    attach();
-  })();
-  window.addEventListener('resize', () => { drawMinimap(); });
+  // MapLibre-скрипт загружен раньше модулей: можно подписаться сразу,
+  // без периодического ожидания хука даты.
+  if (window.chronomap && typeof window.chronomap.onYearChange === 'function') {
+    window.chronomap.onYearChange(() => drawMinimap());
+  }
+  window.addEventListener('resize', () => drawMinimap());
   if (location.hash) openFromHash();
   window.addEventListener('hashchange', openFromHash);
+  window.dispatchEvent(new Event('chrono:app-ready'));
 }
 
 /* ------------------------------------------------ подсказка */
@@ -119,12 +118,16 @@ function wireToolbar() {
   const kToSlider = k => Math.round(1000 * Math.log(k) / Math.log(chart.maxZoom));
   const sliderToK = v => Math.pow(chart.maxZoom, v / 1000);
   zr.addEventListener('input', () => {
-    const c = (chart.visibleYears()[0] + chart.visibleYears()[1]) / 2;
+    const selectedYear = window.chronomap?.state?.year;
+    const center = Number.isFinite(selectedYear)
+      ? selectedYear
+      : chart.yearOf(chart.plotX() + chart.plotW() / 2);
     chart.view.k = sliderToK(+zr.value);
-    chart.clampView(); chart.centerOn(c);
+    chart.clampView();
+    chart.centerOn(center, 'zoom');
   });
-  $('#zoomIn').onclick = () => chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1.6);
-  $('#zoomOut').onclick = () => chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1 / 1.6);
+  $('#zoomIn').onclick = () => chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1.6, 'zoom');
+  $('#zoomOut').onclick = () => chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1 / 1.6, 'zoom');
   document.querySelectorAll('[data-span]').forEach(b => {
     b.onclick = () => {
       const v = b.dataset.span;
@@ -134,7 +137,7 @@ function wireToolbar() {
         // а не вокруг центра прижатого к краю окна.
         const [ca, cb] = chart.visibleYears();
         const yC = (window.chronomap && window.chronomap.state) ? window.chronomap.state.year : (ca + cb) / 2;
-        chart.setVisibleSpan(+v, yC);
+        chart.setVisibleSpan(+v, yC, 'zoom');
       }
       syncView();
     };
@@ -142,7 +145,7 @@ function wireToolbar() {
   $('#rowRange').addEventListener('input', e => chart.setRowUnit(+e.target.value));
   $('#fitRows').onclick = () => { chart.fitRowsToView(); $('#rowRange').value = Math.round(chart.rowUnit); };
   $('#chkLinear').onchange = e => {
-    chart.setScaleMode(e.target.checked ? 'linear' : 'poster');
+    chart.setScaleMode(e.target.checked ? 'linear' : 'poster', 'zoom');
   };
   const togglePop = (id, btn) => {
     const pop = $('#' + id);
@@ -162,21 +165,94 @@ function wireToolbar() {
       closePanel();
       document.querySelectorAll('.btn.toggle').forEach(b => b.classList.remove('on'));
     }
-    if (e.target.tagName === 'INPUT') return;
+    // Горячие клавиши таблицы работают только при фокусе на её canvas:
+    // стрелки на кнопках и в полях ввода не должны сдвигать шкалу.
+    if (e.target !== $('#chart')) return;
     const step = chart.plotW() * 0.25 / chart.contentW();
-    if (e.key === 'ArrowRight') { chart.view.ux += step; chart.clampView(); chart.draw(); syncView(); }
-    if (e.key === 'ArrowLeft') { chart.view.ux -= step; chart.clampView(); chart.draw(); syncView(); }
-    if (e.key === 'ArrowDown') { chart.view.vy += 60; chart.clampView(); chart.draw(); }
-    if (e.key === 'ArrowUp') { chart.view.vy -= 60; chart.clampView(); chart.draw(); }
-    if (e.key === '+' || e.key === '=') chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1.5);
-    if (e.key === '-') chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1 / 1.5);
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      chart.view.ux += e.key === 'ArrowRight' ? step : -step;
+      chart.clampView(); chart.draw(); syncView(chart, 'pan');
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      chart.view.vy += e.key === 'ArrowDown' ? 60 : -60;
+      chart.clampView(); chart.draw();
+    } else if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1.5, 'zoom');
+    } else if (e.key === '-') {
+      e.preventDefault();
+      chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1 / 1.5, 'zoom');
+    }
   });
   $('#zoomRange').value = kToSlider(chart.view.k);
   chart._kToSlider = kToSlider;
 }
 
-function syncView() {
+function wireYearJump() {
+  const form = $('#year-jump-form');
+  const input = $('#year-input');
+  const era = $('#year-era');
+  const error = $('#year-input-error');
+  if (!form || !input || !era || !error) return;
+
+  const clearError = () => {
+    error.textContent = '';
+    input.removeAttribute('aria-invalid');
+    era.removeAttribute('aria-invalid');
+  };
+  const updateInputLimit = () => {
+    const limit = era.value === 'bce' ? Math.abs(chart.scale.yearMin) : chart.scale.yearMax;
+    input.max = String(Math.floor(limit));
+  };
+  updateInputLimit();
+  input.addEventListener('input', clearError);
+  era.addEventListener('change', () => { updateInputLimit(); clearError(); });
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const year = parseHistoricalYear(input.value, era.value);
+    const min = chart.scale.yearMin, max = chart.scale.yearMax;
+    if (year == null) {
+      error.textContent = 'Введите целый год от 1 и выберите эру: до н.э. или н.э.';
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
+      return;
+    }
+    if (year < min || year > max) {
+      error.textContent = `Допустимый диапазон: ${formatYear(min)} — ${formatYear(max)}.`;
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
+      return;
+    }
+    if (!window.chronomap || typeof window.chronomap.setYear !== 'function') {
+      error.textContent = 'Шкала ещё загружается. Попробуйте ещё раз.';
+      input.focus();
+      return;
+    }
+    clearError();
+    window.chronomap.setYear(year);
+    input.value = '';
+  });
+}
+
+function syncView(_instance, source) {
   const [a, b] = chart.visibleYears();
+  if (source === 'pan' || source === 'zoom' || source === 'navigate') {
+    pendingTableView = {
+      source,
+      start: a,
+      end: b,
+      center: chart.yearOf(chart.plotX() + chart.plotW() / 2),
+    };
+    if (!pendingTableViewFrame) {
+      pendingTableViewFrame = requestAnimationFrame(() => {
+        pendingTableViewFrame = 0;
+        const detail = pendingTableView;
+        pendingTableView = null;
+        if (detail) window.dispatchEvent(new CustomEvent('chrono:tableview', { detail }));
+      });
+    }
+  }
   $('#spanOut').textContent = `${Math.round(b - a)} лет на экране`;
   $('#status').textContent =
     `${formatYear(a, true)} — ${formatYear(b, true)} · объектов: ${DATA.meta.counts.entities}, ` +
@@ -185,6 +261,22 @@ function syncView() {
   drawMinimap();
   // рамка сдвинулась → в ленте обновить силуэты событий по краям
   if (window.FEED && window.FEED._refresh) window.FEED._refresh();
+}
+
+function queueFilterUpdate(rebuild, fitRows) {
+  filterNeedsRebuild ||= rebuild;
+  filterNeedsFit ||= fitRows;
+  if (filterUpdateFrame) return;
+  filterUpdateFrame = requestAnimationFrame(() => {
+    filterUpdateFrame = 0;
+    const doRebuild = filterNeedsRebuild;
+    const doFitRows = filterNeedsFit;
+    filterNeedsRebuild = false;
+    filterNeedsFit = false;
+    if (doRebuild) { chart.rebuild(); chart.clampView(); }
+    if (doFitRows && chart.fitRows && !chart.autoHeight) chart.fitRowsToView();
+    else chart.draw();
+  });
 }
 
 /* ------------------------------------------------ фильтры */
@@ -213,20 +305,20 @@ function buildFilters() {
   for (const era of DATA.eras) {
     const b = el('button', '', era.name);
     b.style.background = era.color + '66';
-    b.onclick = () => { chart.zoomToRange(era.start, era.end, 0.03); syncView(); };
+    b.onclick = () => { chart.zoomToRange(era.start, era.end, 0.03, 'zoom'); syncView(); };
     fe.appendChild(b);
   }
   $('#filters').addEventListener('change', e => {
     const t = e.target;
     if (t.dataset.region) {
       t.checked ? chart.filters.regions.add(t.dataset.region) : chart.filters.regions.delete(t.dataset.region);
-      chart.rebuild(); if (chart.fitRows) chart.fitRowsToView(); else chart.draw();
+      queueFilterUpdate(true, true);
     } else if (t.dataset.type) {
       t.checked ? chart.filters.types.add(t.dataset.type) : chart.filters.types.delete(t.dataset.type);
-      chart.rebuild(); chart.draw();
+      queueFilterUpdate(true, false);
     } else if (t.dataset.icon) {
       t.checked ? chart.filters.iconTypes.add(t.dataset.icon) : chart.filters.iconTypes.delete(t.dataset.icon);
-      chart.draw();
+      queueFilterUpdate(false, false);
     }
   });
   $('#chkEvents').onchange = e => { chart.filters.showEvents = e.target.checked; chart.draw(); };
@@ -285,7 +377,7 @@ function buildLegend() {
   for (const era of DATA.eras) {
     const b = el('button', '', `${era.name}`);
     b.style.background = era.color + '66';
-    b.onclick = () => { chart.zoomToRange(era.start, era.end, 0.03); syncView(); };
+    b.onclick = () => { chart.zoomToRange(era.start, era.end, 0.03, 'zoom'); syncView(); };
     eras.appendChild(b);
   }
 }
@@ -353,13 +445,13 @@ function wireSearch() {
 function focusObject(kind, obj) {
   if (kind === 'entity') {
     chart.selectedId = obj.id;
-    chart.zoomToRange(obj.start, obj.end, 0.35);
+    chart.zoomToRange(obj.start, obj.end, 0.35, 'navigate');
     chart.scrollToLane(obj.spans[0].lane);
   } else if (kind === 'event') {
-    chart.setVisibleSpan(Math.max(300, (obj.yearEnd || obj.year) - obj.year + 300), obj.year);
+    chart.setVisibleSpan(Math.max(300, (obj.yearEnd || obj.year) - obj.year + 300), obj.year, 'navigate');
     chart.scrollToLane(obj.lane);
   } else if (kind === 'migration') {
-    chart.zoomToRange(obj.start, obj.end, 0.3);
+    chart.zoomToRange(obj.start, obj.end, 0.3, 'navigate');
     chart.scrollToLane(obj.points[0][1]);
   } else if (kind === 'region') {
     const first = obj.lanes[0];
@@ -506,16 +598,12 @@ function openFromHash() {
 function wireMinimap() {
   const cv = $('#minimap');
   if (!cv) return;
-  // Одно правило на всё:
-  //   при mousedown МИМО окна (или на всём полном полотне) дата = курсор;
-  //   при mousedown В окне — дата едет вместе с окном, сохраняя зазор
-  //   «курсор ↔ красная черта» (окно следует за курсором без телепорта).
-  // Оба случая ведут в одну функцию: setYear + рамка под датой + перерисовка,
-  // так красная черта на полосе сразу на своём месте.
-  let grab = null; // { off, span }
+  let grab = null; // pointerId, смещение от указателя до выбранной даты и ширина окна
+  let pendingU = null, rafId = 0;
+
   const uOf = e => {
     const r = cv.getBoundingClientRect();
-    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    return r.width ? Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) : 0;
   };
   const spanNow = () => {
     const s = chart.visibleYears()[1] - chart.visibleYears()[0];
@@ -523,35 +611,133 @@ function wireMinimap() {
     return s > 35000 ? 14000 : s;
   };
   const apply = u => {
+    if (!grab) return;
     const y = Math.round(chart.scale.year(Math.max(0, Math.min(1, u))));
-    if (window.chronomap && window.chronomap.state) window.chronomap.setYear(y);
     chart.setVisibleSpan(grab.span, y);
-    syncView();
+    if (window.chronomap && window.chronomap.state) window.chronomap.setYear(y);
   };
-  cv.addEventListener('mousedown', e => {
+  const queueApply = u => {
+    pendingU = u;
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = 0;
+      const next = pendingU;
+      pendingU = null;
+      if (grab && next != null) apply(next);
+    });
+  };
+  const flushApply = u => {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    pendingU = null;
+    if (grab) apply(u);
+  };
+  const finish = e => {
+    if (!grab || e.pointerId !== grab.pointerId) return;
+    if (Math.abs(e.clientX - grab.startX) > 3) grab.moved = true;
+    if (grab.moved) flushApply(uOf(e) - grab.off);
+    else {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = 0; pendingU = null;
+    }
+    const pointerId = grab.pointerId;
+    grab = null;
+    if (cv.hasPointerCapture && cv.hasPointerCapture(pointerId)) cv.releasePointerCapture(pointerId);
+  };
+
+  cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     const u = uOf(e);
-    const SS = chart.scale;
+    const scale = chart.scale;
     const [va, vb] = chart.visibleYears();
-    const sa = SS.unit(va), sb = SS.unit(vb);
+    const sa = scale.unit(va), sb = scale.unit(vb);
     const inBox = u >= sa && u <= sb && (sb - sa) < 0.9;
-    if (inBox) {
-      const anchor = (window.chronomap && window.chronomap.state)
-        ? window.chronomap.state.year : (va + vb) / 2;
-      grab = { off: u - SS.unit(anchor), span: spanNow() };
-    } else {
-      grab = { off: 0, span: spanNow() };
-      apply(u);
+    const anchor = window.chronomap?.state?.year ?? (va + vb) / 2;
+    grab = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      moved: false,
+      off: inBox ? u - scale.unit(anchor) : 0,
+      span: spanNow(),
+    };
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    cv.focus({ preventScroll: true });
+    if (!inBox) apply(u);
+  });
+
+  cv.addEventListener('pointermove', e => {
+    if (!grab || e.pointerId !== grab.pointerId) return;
+    if (Math.abs(e.clientX - grab.startX) > 3) grab.moved = true;
+    if (grab.moved) queueApply(uOf(e) - grab.off);
+  });
+  cv.addEventListener('pointerup', finish);
+  cv.addEventListener('pointercancel', e => {
+    if (!grab || e.pointerId !== grab.pointerId) return;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0; pendingU = null; grab = null;
+  });
+  cv.addEventListener('lostpointercapture', e => {
+    if (grab && e.pointerId === grab.pointerId) {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = 0; pendingU = null; grab = null;
     }
   });
-  window.addEventListener('mousemove', e => {
-    if (!grab) return;
-    apply(uOf(e) - grab.off);
+
+  cv.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const direction = e.key === 'ArrowLeft' ? -1 : 1;
+      if (window.FEED?.step) window.FEED.step(direction);
+    } else if (e.key === 'PageUp' || e.key === 'PageDown') {
+      e.preventDefault();
+      const amount = Math.max(1, Math.round(spanNow() / 10));
+      const direction = e.key === 'PageDown' ? 1 : -1;
+      window.chronomap?.setYear(window.chronomap.state.year + direction * amount);
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      const year = e.key === 'Home' ? chart.scale.yearMin : chart.scale.yearMax;
+      window.chronomap?.setYear(year);
+    }
   });
-  window.addEventListener('mouseup', () => { grab = null; });
   drawMinimap();
 }
 
+function getMinimapDensity() {
+  const mode = chart.scale.mode;
+  if (densityCache && densityCacheMode === mode && densityCacheEntities === DATA.entities) return densityCache;
+  const N = 240;
+  const counts = new Array(N).fill(0);
+  for (const e of DATA.entities) {
+    const a = Math.max(0, Math.min(N - 1, Math.floor(chart.scale.unit(e.start) * N)));
+    const b = Math.max(0, Math.min(N - 1, Math.ceil(chart.scale.unit(e.end) * N)));
+    for (let i = a; i <= b; i++) counts[i]++;
+  }
+  densityCache = { counts, max: Math.max(...counts, 1) };
+  densityCacheMode = mode;
+  densityCacheEntities = DATA.entities;
+  return densityCache;
+}
+
+function updateMinimapA11y(cv, a, b) {
+  if (!chart) return;
+  const min = Math.round(chart.scale.yearMin);
+  const max = Math.round(chart.scale.yearMax);
+  const year = Math.round(window.chronomap?.state?.year ?? (a + b) / 2);
+  cv.setAttribute('aria-valuemin', String(min));
+  cv.setAttribute('aria-valuemax', String(max));
+  cv.setAttribute('aria-valuenow', String(year));
+  cv.setAttribute('aria-valuetext', `${formatYear(year)}; видимый диапазон: ${formatYear(a)} — ${formatYear(b)}`);
+}
+
 function drawMinimap() {
+  if (minimapDrawFrame) return;
+  minimapDrawFrame = requestAnimationFrame(() => {
+    minimapDrawFrame = 0;
+    renderMinimap();
+  });
+}
+
+function renderMinimap() {
   const cv = $('#minimap');
   if (!cv || !chart) return;
   const dpr = devicePixelRatio || 1;
@@ -567,15 +753,9 @@ function drawMinimap() {
     ctx.fillStyle = era.color + 'cc';
     ctx.fillRect(ux(era.start), 0, ux(era.end) - ux(era.start), 11);
   }
-  // плотность объектов по времени
-  const N = 240;
-  const counts = new Array(N).fill(0);
-  for (const e of DATA.entities) {
-    const a = Math.max(0, Math.floor(chart.scale.unit(e.start) * N));
-    const b = Math.min(N - 1, Math.ceil(chart.scale.unit(e.end) * N));
-    for (let i = a; i <= b; i++) counts[i]++;
-  }
-  const max = Math.max(...counts, 1);
+  // Плотность неизменяемой базы кэшируем; при перетаскивании меняются только рамка и дата.
+  const { counts, max } = getMinimapDensity();
+  const N = counts.length;
   ctx.beginPath();
   ctx.moveTo(0, H);
   for (let i = 0; i < N; i++) ctx.lineTo(i / (N - 1) * W, H - 3 - (counts[i] / max) * (H - 18));
@@ -618,4 +798,5 @@ function drawMinimap() {
     ctx.moveTo(xc - 5, 0); ctx.lineTo(xc + 5, 0); ctx.lineTo(xc, 7);
     ctx.closePath(); ctx.fill();
   }
+  updateMinimapA11y(cv, a, b);
 }

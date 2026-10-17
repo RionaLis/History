@@ -23,6 +23,24 @@ body.home-main {
    ЗОНЫ
    ============================================================ */
 
+/* На главной карта и лента делят верхний ряд пополам; управление и таблица
+   занимают всю ширину ниже. На узком экране колонки складываются в столбец. */
+.main-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "map feed"
+    "controls controls"
+    "table table";
+  align-items: stretch;
+  min-width: 0;
+}
+
+.map-zone { grid-area: map; min-width: 0; }
+.controls-zone { grid-area: controls; min-width: 0; }
+.feed-zone { grid-area: feed; min-width: 0; }
+.table-zone { grid-area: table; min-width: 0; }
+
 .zone { position: relative; }
 
 .zone-head {
@@ -486,7 +504,7 @@ body.home-main {
 .map-zone .maplibregl-ctrl-attrib a { color: var(--accent-soft); }
 
 /* ============================================================
-   ЗОНА 2 · УПРАВЛЕНИЕ
+   ЗОНА 3 · УПРАВЛЕНИЕ
    ============================================================ */
 
 .controls-zone {
@@ -502,14 +520,15 @@ body.home-main {
 #quick-jumps {
   display: flex;
   gap: 6px;
-  padding: 0;
+  padding: 0 0 4px;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(217, 164, 65, 0.55) transparent;
 }
 
-#quick-jumps::-webkit-scrollbar { display: none; }
+#quick-jumps::-webkit-scrollbar { height: 4px; }
+#quick-jumps::-webkit-scrollbar-thumb { background: rgba(217, 164, 65, 0.55); border-radius: 4px; }
 
 .qjump {
   appearance: none;
@@ -580,6 +599,61 @@ body.home-main {
   color: var(--accent-soft);
   white-space: nowrap;
   text-align: center;
+}
+
+.year-jump-form {
+  flex: 0 1 270px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.year-jump-form > label {
+  color: var(--text-dim);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.year-jump-controls { display: flex; gap: 6px; min-width: 0; }
+
+.year-jump-controls input,
+.year-jump-controls select {
+  height: 32px;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  padding: 0 9px;
+  background: #30281f;
+  color: var(--text);
+  font: inherit;
+}
+
+.year-jump-controls input { min-width: 0; flex: 1 1 auto; }
+.year-jump-controls select { flex: 0 0 auto; min-width: 88px; cursor: pointer; color-scheme: dark; }
+.year-jump-controls input::placeholder { color: var(--text-dim); opacity: .8; }
+.year-jump-controls input:focus-visible,
+.year-jump-controls select:focus-visible { outline: 2px solid var(--accent-cm); outline-offset: 2px; }
+.year-jump-controls input[aria-invalid="true"],
+.year-jump-controls select[aria-invalid="true"] { border-color: #ff8b78; }
+
+.year-jump-controls button {
+  flex: 0 0 auto;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  padding: 0 11px;
+  background: rgba(217,164,65,.16);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.year-jump-controls button:hover { background: rgba(217,164,65,.28); }
+.year-input-error { color: #ffb4a0; font-size: 11px; line-height: 1.2; }
+
+#minimap:focus-visible {
+  outline: 3px solid var(--accent-cm);
+  outline-offset: 3px;
 }
 
 .tl-slider-wrap {
@@ -663,12 +737,21 @@ body.home-main {
   transition: background 0.15s, border-color 0.15s;
 }
 
-.tl-arrow:hover {
+.tl-arrow:hover:not(:disabled) {
   background: rgba(217, 164, 65, 0.28);
   border-color: var(--accent-cm, #a8842f);
 }
 
+.tl-arrow:disabled,
+#feed-prev:disabled,
+#feed-next:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
 .controls-zone #minimap {
+  touch-action: pan-y;
+
   flex: 1 1 auto;
   min-width: 0;
   height: 64px;
@@ -744,7 +827,7 @@ body.home-main {
 .feed-empty-mid { padding: 10px 14px; font-size: 12.5px; }
 
 /* ============================================================
-   ЗОНА 3 · ТАБЛИЦА (встраиваем в поток страницы)
+   ЗОНА 4 · ТАБЛИЦА (встраиваем в поток страницы)
    ============================================================ */
 
 .table-zone { background: var(--bg); }
@@ -755,7 +838,10 @@ body.home-main {
   bottom: auto;
   left: auto;
   right: auto;
-  height: clamp(300px, 42vh, 460px);
+  /* Высоту выставляет Chart по числу дорожек и размеру строк —
+     таблица целиком живёт в потоке страницы, без внутреннего обрезания. */
+  height: auto;
+  min-height: 300px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -777,13 +863,17 @@ body.home-main {
 }
 
 /* ============================================================
-   ЗОНА 4 · ЛЕНТА ХРОНОЛОГИИ
+   ЗОНА 2 · ЛЕНТА ХРОНОЛОГИИ
    ============================================================ */
 
 .feed-zone {
   background: var(--bg);
-  padding: 14px 16px 30px;
-  border-top: 1px solid var(--line);
+  height: 50vh;
+  min-height: 340px;
+  padding: 14px 16px;
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
 }
 
 .feed-head {
@@ -813,7 +903,7 @@ body.home-main {
   transition: background 0.15s, border-color 0.15s;
 }
 
-#feed-prev:hover, #feed-next:hover {
+#feed-prev:hover:not(:disabled), #feed-next:hover:not(:disabled) {
   background: #fff;
   border-color: var(--accent);
   color: var(--accent);
@@ -830,9 +920,11 @@ body.home-main {
 
 #feed-list {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 10px;
-  max-height: 54vh;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
   padding-right: 6px;
   scrollbar-width: thin;
@@ -945,6 +1037,36 @@ body.home-main {
 
 .feed-to-map:hover { background: #d8f0e2; }
 
+/* При половинной ширине не тратим место на боковые силуэты ленты. */
+@media (min-width: 901px) and (max-width: 1100px) {
+  .feed-sils { display: none; }
+}
+
+/* ============================================================
+   АДАПТИВНАЯ РАСКЛАДКА
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .main-flow {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "map"
+      "feed"
+      "controls"
+      "table";
+  }
+
+  .feed-zone {
+    height: auto;
+    min-height: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  /* На узком экране лента раскрывается по содержимому вместе со страницей. */
+  #feed-list { flex: 0 0 auto; overflow: visible; }
+}
+
 /* ============================================================
    МОБИЛЬНАЯ ВЕРСИЯ
    ============================================================ */
@@ -993,7 +1115,8 @@ body.home-main {
     align-content: center;
   }
 
-  #year-display { min-width: 110px; font-size: 18px; order: 2; }
+  #year-display { min-width: 110px; font-size: 18px; order: 1; }
+  .year-jump-form { flex: 1 1 220px; min-width: min(100%, 220px); order: 2; }
   .tl-controls { order: 1; }
   .tl-controls button { width: 32px; height: 32px; font-size: 13px; }
   .tl-arrow { width: 36px; height: 36px; font-size: 15px; }
@@ -1009,8 +1132,6 @@ body.home-main {
 
   .zone-head { padding: 8px 12px; }
   .zone-head .zone-sub { display: none; }
-
-  .table-zone .stage { height: 320px; }
 
   .home-main .panel { width: 100%; }
 

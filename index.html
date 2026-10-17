@@ -41,7 +41,7 @@
     <div id="map" role="application" aria-label="Историческая карта"></div>
 
     <div id="hint" class="card">
-      <span>Вращайте глобус мышкой или пальцем · колесо — приблизить · год — шкала под картой</span>
+      <span>Вращайте глобус мышкой или пальцем · колесо — приблизить · год — общая шкала ниже</span>
       <button id="hint-close" type="button" title="Скрыть" aria-label="Скрыть подсказку">×</button>
     </div>
 
@@ -92,33 +92,46 @@
     <div id="error-banner" class="is-hidden"></div>
   </section>
 
-  <!-- ============== ЗОНА 2 · ЭЛЕМЕНТЫ УПРАВЛЕНИЯ ============== -->
-  <section class="zone controls-zone" aria-label="Управление">
-    <div id="quick-jumps" class="card" aria-label="Быстрые прыжки к эпохам и событиям"></div>
-    <div id="timeline" class="card">
-      <div id="year-display" aria-live="polite">…</div>
-      <div class="tl-strip">
-        <button id="btn-back" class="tl-arrow" type="button" title="На год назад" aria-label="На год назад">←</button>
-        <canvas id="minimap" title="Шкала времени: перетащите рамку — красная черта выбранной даты."></canvas>
-        <button id="btn-fwd" class="tl-arrow" type="button" title="На год вперёд" aria-label="На год вперёд">→</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============= ЗОНА 3 · ЛЕНТА ХРОНОЛОГИИ ============= -->
+  <!-- ============= ЗОНА 2 · ЛЕНТА ХРОНОЛОГИИ ============= -->
   <section class="zone feed-zone" aria-label="Лента хронологии">
     <div class="feed-head">
       <div class="feed-title">
         <b>Лента хронологии</b>
-        <span class="zone-sub">‹ › или свайп — соседние события · рамка на шкале сверху — окно масштаба</span>
+        <span class="zone-sub">‹ › или свайп — соседние события · боковые карточки выбирают дату, центральная открывает подробности</span>
       </div>
       <div class="feed-nav">
-        <button id="feed-prev" type="button" title="Предыдущая дата" aria-label="Предыдущая дата">‹</button>
+        <button id="feed-prev" type="button" title="К предыдущему событию" aria-label="К предыдущему событию" disabled>‹</button>
         <span id="feed-date" aria-live="polite">…</span>
-        <button id="feed-next" type="button" title="Следующая дата" aria-label="Следующая дата">›</button>
+        <button id="feed-next" type="button" title="К следующему событию" aria-label="К следующему событию" disabled>›</button>
       </div>
     </div>
     <div id="feed-list"></div>
+  </section>
+
+  <!-- ============== ЗОНА 3 · ЭЛЕМЕНТЫ УПРАВЛЕНИЯ ============== -->
+  <section class="zone controls-zone" aria-label="Управление">
+    <div id="quick-jumps" class="card" aria-label="Быстрые прыжки к эпохам и событиям"></div>
+    <div id="timeline" class="card">
+      <div id="year-display" aria-live="polite">…</div>
+      <form id="year-jump-form" class="year-jump-form" novalidate>
+        <label for="year-input">Перейти к году</label>
+        <div class="year-jump-controls">
+          <input id="year-input" type="number" inputmode="numeric" min="1" step="1" placeholder="988"
+                 autocomplete="off" aria-label="Номер года" aria-describedby="year-input-error">
+          <select id="year-era" aria-label="Эра">
+            <option value="ce" selected>н.э.</option>
+            <option value="bce">до н.э.</option>
+          </select>
+          <button type="submit">Перейти</button>
+        </div>
+        <span id="year-input-error" class="year-input-error" aria-live="polite"></span>
+      </form>
+      <div class="tl-strip">
+        <button id="btn-back" class="tl-arrow" type="button" title="К предыдущему событию" aria-label="К предыдущему событию" disabled>←</button>
+        <canvas id="minimap" role="slider" aria-orientation="horizontal" tabindex="0" aria-label="Шкала времени. Перетаскивание меняет видимый диапазон; стрелки переходят к соседним событиям." title="Перетащите рамку для смены диапазона; ←/→ — соседнее событие; Page Up/Down — шаг по масштабу; Home/End — начало/конец шкалы."></canvas>
+        <button id="btn-fwd" class="tl-arrow" type="button" title="К следующему событию" aria-label="К следующему событию" disabled>→</button>
+      </div>
+    </div>
   </section>
 
   <!-- ============ ЗОНА 4 · СИНХРОНОЛОГИЧЕСКАЯ ТАБЛИЦА ============ -->
@@ -133,7 +146,7 @@
       <div class="group">
         <span class="lbl">Масштаб</span>
         <button class="btn" id="zoomOut" title="Отдалить (Ctrl + колесо вниз)">−</button>
-        <input type="range" id="zoomRange" min="0" max="1000" value="0" title="Масштаб времени">
+        <input type="range" id="zoomRange" min="0" max="1000" value="0" title="Масштабировать вокруг выбранной даты на карте">
         <button class="btn" id="zoomIn" title="Приблизить (Ctrl + колесо вверх)">+</button>
         <span class="readout" id="spanOut">14000 лет на экране</span>
       </div>
@@ -147,7 +160,7 @@
       <div class="group">
         <span class="lbl">Строки</span>
         <input type="range" id="rowRange" min="9" max="44" step="1" value="16" title="Высота строк">
-        <button class="btn" id="fitRows" title="Вписать все регионы по высоте экрана">⤢ Вписать</button>
+        <button class="btn" id="fitRows" title="Показать все регионы по высоте таблицы">⤢ Вписать</button>
       </div>
       <div class="group">
         <button class="btn toggle" id="btnFilters">Фильтры</button>
@@ -160,7 +173,7 @@
     </div>
 
     <div class="stage" id="stage">
-      <canvas id="chart"></canvas>
+      <canvas id="chart" tabindex="0" role="application" aria-label="Интерактивная синхронологическая таблица. Стрелки перемещают шкалу времени, плюс и минус меняют масштаб."></canvas>
       <div class="tooltip" id="tip" hidden></div>
 
       <div class="popover" id="filters" hidden>

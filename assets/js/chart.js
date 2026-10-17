@@ -59,6 +59,9 @@ export class Chart {
     this.onHover = opts.onHover || (() => {});
     this.onSelect = opts.onSelect || (() => {});
     this.onView = opts.onView || (() => {});
+    // На главной страница прокручивается целиком: высота canvas следует
+    // за полной раскладкой дорожек, а не за окном просмотра.
+    this.autoHeight = !!opts.autoHeight;
     this._eventBoxes = [];
     this._migPaths = [];
     this._eraBoxes = [];
@@ -74,6 +77,16 @@ export class Chart {
     const ents = this.data.entities.filter(e => this.filters.types.has(e.type));
     this.strips = layoutEntities(ents, laneIds);
     this.entityById = new Map(this.data.entities.map(e => [e.id, e]));
+    this.syncStageHeight();
+  }
+
+  /** На главной выделяем место под все дорожки; таблица не обрезается по высоте. */
+  syncStageHeight() {
+    if (!this.autoHeight) return;
+    const stage = this.canvas.closest('.stage');
+    if (!stage) return;
+    const height = Math.ceil(this.plotY() + this.lanesLayout.height + 1);
+    stage.style.height = `${Math.max(300, height)}px`;
   }
 
   setRowUnit(v) { this.rowUnit = v; this.fitRows = false; this.rebuild(); this.clampView(); this.draw(); }
@@ -117,7 +130,7 @@ export class Chart {
   }
 
   /** Сменить проекцию, не меняя видимые крайние даты. */
-  setScaleMode(mode) {
+  setScaleMode(mode, source = 'programmatic') {
     if (this.scale.mode === mode) return;
     const [yearA, yearB] = this.visibleYears();
     this.scale.setMode(mode);
@@ -126,11 +139,11 @@ export class Chart {
     this.view.ux = u0;
     this.clampView();
     this.draw();
-    this.onView(this);
+    this.onView(this, source);
   }
 
   /** Подобрать масштаб так, чтобы на экране было ~span лет вокруг центра. */
-  setVisibleSpan(span, center) {
+  setVisibleSpan(span, center, source = 'programmatic') {
     const [a, b] = this.visibleYears();
     const c = center ?? (a + b) / 2;
     const y0 = Math.max(this.scale.yearMin, c - span / 2);
@@ -142,28 +155,28 @@ export class Chart {
     this.view.ux = this.scale.unit(y0);
     this.clampView();
     this.draw();
-    this.onView(this);
+    this.onView(this, source);
   }
 
-  centerOn(year) {
+  centerOn(year, source = 'programmatic') {
     const u = this.scale.unit(year);
     this.view.ux = u - 0.5 / this.view.k;
     this.clampView();
     this.draw();
-    this.onView(this);
+    this.onView(this, source);
   }
 
-  zoomAt(px, factor) {
+  zoomAt(px, factor, source = 'programmatic') {
     const uAt = (px - this.plotX()) / this.contentW() + this.view.ux;
     this.view.k *= factor;
     this.clampView();
     this.view.ux = uAt - (px - this.plotX()) / this.contentW();
     this.clampView();
     this.draw();
-    this.onView(this);
+    this.onView(this, source);
   }
 
-  zoomToRange(y0, y1, padFrac = 0.12) {
+  zoomToRange(y0, y1, padFrac = 0.12, source = 'programmatic') {
     const u0 = this.scale.unit(y0), u1 = this.scale.unit(y1);
     const du = Math.max(1e-5, (u1 - u0) * (1 + padFrac * 2));
     this.view.k = 1 / du;
@@ -171,7 +184,7 @@ export class Chart {
     this.view.ux = Math.max(0, u0 - (u1 - u0) * padFrac);
     this.clampView();
     this.draw();
-    this.onView(this);
+    this.onView(this, source);
   }
 
   scrollToLane(laneId) {
@@ -924,7 +937,7 @@ export class Chart {
         this.view.vy = drag.vy - dy;
         this.clampView();
         this.draw();
-        this.onView(this);
+        this.onView(this, 'pan');
         return;
       }
       if (mx < 0 || my < 0 || mx > r.width || my > r.height) { this._setHover(null, ev); return; }
@@ -952,32 +965,43 @@ export class Chart {
     c.addEventListener('dblclick', ev => {
       const r = c.getBoundingClientRect();
       const hit = this.hitTest(ev.clientX - r.left, ev.clientY - r.top);
-      if (hit && hit.kind === 'entity') this.zoomToRange(hit.obj.start, hit.obj.end, 0.25);
-      else if (hit && hit.kind === 'era') this.zoomToRange(hit.obj.start, hit.obj.end, 0.05);
+      if (hit && hit.kind === 'entity') this.zoomToRange(hit.obj.start, hit.obj.end, 0.25, 'zoom');
+      else if (hit && hit.kind === 'era') this.zoomToRange(hit.obj.start, hit.obj.end, 0.05, 'zoom');
     });
 
-    // Колесо и тачпад: обычная прокрутка перемещает полотно (как в карте или
-    // таблице), а щипок тачпада / Ctrl(⌘)+колесо растягивают шкалу времени.
+    // Колесо и тачпад: в полноэкранной таблице обычная прокрутка двигает
+    // полотно; на главной, где видны все строки, вертикальная прокрутка
+    // остаётся странице, а Ctrl/⌘+колесо по-прежнему меняют масштаб времени.
     c.addEventListener('wheel', ev => {
-      ev.preventDefault();
       const r = c.getBoundingClientRect();
       const mx = ev.clientX - r.left;
       const unit = ev.deltaMode === 1 ? 18 : ev.deltaMode === 2 ? this.plotH() : 1;
       const dx = ev.deltaX * unit, dy = ev.deltaY * unit;
       if (ev.ctrlKey || ev.metaKey || ev.altKey) {
+        ev.preventDefault();
         // щипок тачпада браузер присылает как wheel с ctrlKey
         const soft = (ev.ctrlKey || ev.metaKey) && !ev.altKey ? 0.42 : 1;
         const f = Math.pow(1.0038, -dy * soft);
-        this.zoomAt(Math.max(this.plotX(), mx), f);
+        this.zoomAt(Math.max(this.plotX(), mx), f, 'zoom');
         return;
       }
+      if (this.autoHeight && !ev.shiftKey) {
+        // Трекпад может передать горизонтальную составляющую одновременно
+        // с вертикальной: сдвигаем годы, но не блокируем прокрутку страницы.
+        if (dx) {
+          this.view.ux += dx / this.contentW();
+          this.clampView(); this.draw(); this.onView(this, 'pan');
+        }
+        return;
+      }
+      ev.preventDefault();
       if (ev.shiftKey) {            // привычная горизонтальная прокрутка
         this.view.ux += (dx + dy) / this.contentW();
       } else {
         this.view.vy += dy;
         this.view.ux += dx / this.contentW();
       }
-      this.clampView(); this.draw(); this.onView(this);
+      this.clampView(); this.draw(); this.onView(this, 'pan');
     }, { passive: false });
 
     c.addEventListener('mouseleave', () => this._setHover(null, null));
@@ -998,17 +1022,27 @@ export class Chart {
     }, { passive: true });
     c.addEventListener('touchmove', ev => {
       if (!touch) return;
+      if (this.autoHeight && touch.mode === 'pan' && ev.touches.length === 1) {
+        const dx = ev.touches[0].clientX - touch.x, dy = ev.touches[0].clientY - touch.y;
+        // Вертикальный свайп прокручивает страницу; горизонтальный двигает шкалу.
+        if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+          ev.preventDefault();
+          this.view.ux = touch.ux - dx / this.contentW();
+          this.clampView(); this.draw(); this.onView(this, 'pan');
+        }
+        return;
+      }
       ev.preventDefault();
       if (touch.mode === 'pan' && ev.touches.length === 1) {
         const dx = ev.touches[0].clientX - touch.x, dy = ev.touches[0].clientY - touch.y;
         this.view.ux = touch.ux - dx / this.contentW();
         this.view.vy = touch.vy - dy;
-        this.clampView(); this.draw(); this.onView(this);
+        this.clampView(); this.draw(); this.onView(this, 'pan');
       } else if (touch.mode === 'zoom' && ev.touches.length === 2) {
         const d = Math.hypot(ev.touches[0].clientX - ev.touches[1].clientX,
                              ev.touches[0].clientY - ev.touches[1].clientY);
         const target = touch.k * (d / touch.d);
-        this.zoomAt(touch.cx, target / this.view.k);
+        this.zoomAt(touch.cx, target / this.view.k, 'zoom');
       }
     }, { passive: false });
     c.addEventListener('touchend', () => { touch = null; }, { passive: true });

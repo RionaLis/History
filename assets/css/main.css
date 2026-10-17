@@ -85,6 +85,7 @@ input[type=range] { width: 140px; accent-color: var(--accent); }
   bottom: var(--bottom-h); left: 0; right: 0;
 }
 #chart { width: 100%; height: 100%; display: block; cursor: grab; }
+#chart:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 #chart.dragging { cursor: grabbing; }
 
 .tooltip {

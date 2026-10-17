@@ -14,18 +14,11 @@ const ICON_COLOR = {
 };
 
 let DATA = null;
-let dates = [];            // отсортированные годы, в которых есть события
-let eventsByYear = new Map();
-let idx = 0;               // текущая позиция в dates
-let chart = null;          // её таблица (window.chart из assets/js/app.js)
-
-let src = null, srcT = 0;   // кто последний синхронизировал (guard от петель)
-let suppress = false;       // наш собственный setYear — хук молчит
-const mark = s => { src = s; srcT = Date.now(); };
-const recent = () => Date.now() - srcT < 1500;
-
-let tableTouch = 0;         // последнее касание шкалы таблицы («её палец»)
-const tableRecent = () => Date.now() - tableTouch < 1500;
+let dates = [];            // уникальные годы начала событий
+let idx = 0;               // ближайшая дата события к выбранному году
+let chart = null;          // таблица из assets/js/app.js
+let booted = false;
+let suppress = false;      // защищает от повторного рендера при нашем setYear
 
 // перерисовка ленты: не чаще ~7 раз в секунду, но с хвостом после серии событий
 let lastRender = 0, renderT = null;
@@ -56,114 +49,84 @@ function centerTable(y) {
   }
 }
 
-/* ---------------------------------------------------------- ожидание */
+/* ---------------------------------------------------------- запуск */
 
-const t0 = Date.now();
-const wait = setInterval(() => {
-  if (window.DATA && window.chart && window.chronomap) {
-    clearInterval(wait);
-    boot();
-  } else if (Date.now() - t0 > 60000) {
-    clearInterval(wait);
-    $('#feed-list').innerHTML = '<div class="feed-empty">Не удалось загрузить данные ленты — обновите страницу.</div>';
-  }
-}, 300);
+const bootTimeout = setTimeout(() => {
+  if (!booted) $('#feed-list').innerHTML = '<div class="feed-empty">Не удалось загрузить данные ленты — обновите страницу.</div>';
+}, 60000);
+
+function startWhenReady() {
+  if (window.DATA && window.chart && window.chronomap) boot();
+  else window.addEventListener('chrono:app-ready', boot, { once: true });
+}
 
 function boot() {
+  if (booted || !window.DATA || !window.chart || !window.chronomap) return;
+  booted = true;
+  clearTimeout(bootTimeout);
   DATA = window.DATA;
   chart = window.chart;
 
-  // даты = годы всех событий из content/*.md
-  const years = new Set();
-  for (const e of DATA.events) {
-    years.add(e.year);
-    if (e.yearEnd) for (let y = e.year; y <= e.yearEnd; y += Math.max(1, Math.round((e.yearEnd - e.year) / 8))) years.add(y);
-  }
-  dates = [...years].sort((a, b) => a - b);
-  for (const e of DATA.events) {
-    if (!eventsByYear.has(e.year)) eventsByYear.set(e.year, []);
-    eventsByYear.get(e.year).push(e);
-  }
-
-  // стартовое положение — ближайшая дата к текущему году карты
+  // Навигация идёт по реальным годам начала событий; события одного года
+  // остаются одной синхронной группой, а промежуточные годы длинных событий
+  // не становятся искусственными остановками.
+  dates = [...new Set(DATA.events.map(e => e.year))].sort((a, b) => a - b);
   idx = nearestIdx(window.chronomap.state.year);
+
+  window.CHRONO_LINK = {
+    findEntity: name => findEntity(name),
+    findEvent: title => findEvent(title),
+    openItem: (kind, id) => openItem(kind, id),
+  };
+  window.FEED = {
+    go,
+    step: stepToEvent,
+    dates: () => dates,
+    current: () => dates[idx],
+    setIdx: i => go(i),
+    _contour: () => contourIndex ? [...contourIndex.keys()].slice(0, 40) : null,
+    _year: () => currentYear(),
+    _refresh: () => scheduleRender(),
+    _active: () => DATA.entities.filter(e => e.start <= currentYear() && e.end >= currentYear()).length,
+  };
+
+  $('#feed-prev').addEventListener('click', () => stepToEvent(-1));
+  $('#feed-next').addEventListener('click', () => stepToEvent(1));
+  wireSwipe();
   render();
 
-  // — клики панели навигации —
-  $('#feed-prev').addEventListener('click', () => go(idx - 1));
-  $('#feed-next').addEventListener('click', () => go(idx + 1));
-  wireSwipe();
-
-  // — карта/слайдер/чипы/▶ сменили год → лента и таблица следуют одновременно —
+  // Карта — источник выбранного года. Если он вышел за видимый диапазон,
+  // сдвигаем таблицу, сохраняя её масштаб.
   window.chronomap.onYearChange(y => {
-    if (suppress) return;                        // это мы сами двигали дату
-    mark('map');
+    if (suppress) return;
     idx = nearestIdx(y);
-    scheduleRender();                            // метка, поле видимости, карточки
-    if (tableRecent() || !chart) return;         // её палец на таблице — не спорим
+    scheduleRender();
+    if (!chart) return;
     try {
       const [a, b] = chart.visibleYears();
-      // дата ВНЕ рамки → подтягиваем окно. Внутри — окно не трогаем:
-      // иначе после перетаскивания у края шкалы оно самоцентрировалось.
-      if (y < a || y > b) {
-        mark('feed');
-        centerTable(y);
-      }
+      if (y < a || y > b) centerTable(y);
     } catch (e) { /* chart ещё не готов */ }
   });
 
-  // — шкала таблицы двигается (пан, колесо, обзорка, стрелки) → карта и лента следуют —
-  // окно «её палец на шкале» продлевается при каждом движении с зажатой кнопкой
-  const touchTable = () => { tableTouch = Date.now(); };
-  const tz = document.querySelector('.table-zone');
-  if (tz) {
-    // клик по кнопке/чипу/слайдеру — это НЕ перетаскивание таблицы
-    tz.addEventListener('pointerdown', e => {
-      if (e.target && e.target.closest && e.target.closest('button, input, label, a')) return;
-      touchTable();
-    }, { passive: true });
-    tz.addEventListener('pointermove', e => { if (e.buttons) touchTable(); }, { passive: true });
-    tz.addEventListener('wheel', touchTable, { passive: true });
-    tz.addEventListener('touchstart', touchTable, { passive: true });
-    tz.addEventListener('touchmove', touchTable, { passive: true });
-  }
-  window.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') touchTable();
+  // Только явный пользовательский пан таблицы меняет выбранный год.
+  // Зум сохраняет выбранную дату и, если надо, возвращает её в кадр.
+  window.addEventListener('chrono:tableview', e => {
+    const detail = e.detail || {};
+    if (detail.source === 'pan' || detail.source === 'navigate') {
+      const y = Math.round(detail.center);
+      if (y !== currentYear()) window.chronomap.setYear(y);
+    } else if (detail.source === 'zoom') {
+      const y = currentYear();
+      if (y < detail.start || y > detail.end) centerTable(y);
+    }
   });
 
-  // Карта права по умолчанию; таблица побеждает, только если её центр СДВИНУЛСЯ
-  // (пан/колесо/обзорка) или палец ещё на шкале. Так нет петель и отката слайдера.
-  let lastCenter = null;                       // для FEED._dbg
-  setInterval(() => {
-    if (!window.chart || !window.chronomap) return;
-    try {
-      const [a, b] = window.chart.visibleYears();
-      const span = b - a;
-      const center = Math.round((a + b) / 2);
-      const y = window.chronomap.state.year;
-      const active = tableRecent();
-      lastCenter = center;
-      if (span > 3500) return;                  // дальний обзор не трогаем
-      if (center === y) return;
-      // её палец на таблице → дата = центру. Иначе: пока дата В КАДРЕ — она
-      // выбранная (усечённые у края шкалы рамки, чипы вокруг даты, прыжки);
-      // вывалилась из кадра — подтягиваем к центру. Так нет петель и отката.
-      if (!active && y >= a && y <= b) return;
-      mark('table');
-      suppress = true;
-      window.chronomap.setYear(center);
-      suppress = false;
-      idx = nearestIdx(center);
-      render();                                 // метка/поле/карточки — сразу
-    } catch (e) { /* таблица ещё стартует */ }
-  }, 300);
-
-  // — перерисовываем связки «контур ↔ статья» после движения карты —
+  // После движения карты обновляем индекс контуров для связки «контур ↔ статья».
   let relTimer = null;
   const scheduleRelations = () => {
     clearTimeout(relTimer);
     relTimer = setTimeout(() => {
-      contourIndex = null;      // после движения/drag года индекс устарел — заново
+      contourIndex = null;
       contourTries = 0;
       updateRelations();
     }, 900);
@@ -172,30 +135,14 @@ function boot() {
   window.chronomap.map.on('idle', scheduleRelations);
   window.chronomap.map.on('render', scheduleRelations);
   scheduleRelations();
-
-  // — мост для попапов карты (map-app.js вызывает window.CHRONO_LINK) —
-  window.CHRONO_LINK = {
-    findEntity: name => findEntity(name),
-    findEvent: title => findEvent(title),
-    openItem: (kind, id) => openItem(kind, id),
-  };
-
-  window.FEED = {
-    go, dates: () => dates, current: () => dates[idx], setIdx: i => go(i),
-    _contour: () => contourIndex ? [...contourIndex.keys()].slice(0, 40) : null,
-    _year: () => currentYear(),
-    _refresh: () => scheduleRender(),
-    _active: () => DATA.entities.filter(e => e.start <= currentYear() && e.end >= currentYear()).length,
-    _dbg: () => ({
-      tableTouchAgo: Date.now() - tableTouch, src, srcAgo: Date.now() - srcT,
-      idxYear: dates[idx], suppress
-    }),
-  };
 }
+
+startWhenReady();
 
 /* ---------------------------------------------------------- даты */
 
 function nearestIdx(year) {
+  if (!dates.length) return -1;
   let best = 0, bd = Infinity;
   for (let i = 0; i < dates.length; i++) {
     const d = Math.abs(dates[i] - year);
@@ -208,33 +155,52 @@ function go(i) {
   applyStep(i);
 }
 
-/** Шаг по датам (‹ ›, свайп): всё — на выбранную дату одновременно. */
+/** Переход к ближайшему реальному году события относительно выбранной даты. */
+function stepToEvent(direction) {
+  if (!dates.length) return;
+  const year = currentYear();
+  let next = -1;
+  if (direction < 0) {
+    for (let i = dates.length - 1; i >= 0; i--) {
+      if (dates[i] < year) { next = i; break; }
+    }
+  } else {
+    next = dates.findIndex(date => date > year);
+  }
+  if (next >= 0) applyStep(next);
+}
+
+/** Все стрелки и свайп используют одну навигацию по соседним событиям. */
 function applyStep(i) {
+  if (!dates.length) return;
   i = Math.max(0, Math.min(dates.length - 1, i));
-  const changed = i !== idx;
+  const D = dates[i];
+  const changed = D !== currentYear();
   idx = i;
-  const D = dates[idx];
-  mark('feed');
-  if (window.chronomap && window.chronomap.state.year !== D) {
+  if (changed && window.chronomap) {
     suppress = true;
-    window.chronomap.setYear(D);
-    suppress = false;
+    try { window.chronomap.setYear(D); }
+    finally { suppress = false; }
     clearHighlight();
   }
-  if (chart && !tableRecent()) {
+  if (chart) {
     try {
       const [a, b] = chart.visibleYears();
-      if (D < a || D > b) centerTable(D);        // вне рамки — подтягиваем; внутри не двигаем
+      if (D < a || D > b) centerTable(D);
     } catch (e) { /* chart ещё не готов */ }
   }
-  render();                                  // метка, поле видимости, карточки — сразу
+  render();
 }
 
 /* ---------------------------------------------------------- отрисовка */
 
 function render() {
   const Y = currentYear();
-  idx = nearestIdx(Y);                         // позиция ‹ › — ближайшая дата с событиями
+  idx = nearestIdx(Y);
+  const canPrev = dates.length > 0 && Y > dates[0];
+  const canNext = dates.length > 0 && Y < dates[dates.length - 1];
+  ['feed-prev', 'btn-back'].forEach(id => { const b = $('#' + id); if (b) b.disabled = !canPrev; });
+  ['feed-next', 'btn-fwd'].forEach(id => { const b = $('#' + id); if (b) b.disabled = !canNext; });
 
   // центр — события выбранного дня (день-в-день, включая идущие)
   const evs = DATA.events
@@ -242,15 +208,12 @@ function render() {
     .sort((a, b) => a.year - b.year);
   $('#feed-date').textContent = formatYear(Y) + ' · событий: ' + evs.length;
 
-  // рамка на шкале (окно масштаба) — в её пределах показываем «силуэты» соседей
-  let fa = Y, fb = Y;
-  try { const w = chart.visibleYears(); fa = w[0]; fb = w[1]; } catch (e) { /* chart не готов */ }
-  const inFrame = e => e.year <= fb && (e.yearEnd || e.year) >= fa;
+  // По три ближайших события с каждой стороны, независимо от рамки масштаба таблицы.
   const before = DATA.events
-    .filter(e => e.year < Y && (e.yearEnd || e.year) < Y && inFrame(e))
+    .filter(e => e.year < Y && (e.yearEnd || e.year) < Y)
     .sort((a, b) => b.year - a.year).slice(0, 3);
   const after = DATA.events
-    .filter(e => e.year > Y && inFrame(e))
+    .filter(e => e.year > Y)
     .sort((a, b) => a.year - b.year).slice(0, 3);
 
   const list = $('#feed-list');
@@ -282,7 +245,7 @@ function render() {
         </article>`;
       }
     } else {
-      html += '<div class="feed-empty feed-empty-mid">В этот день событий нет — соседние по краям рамки</div>';
+      html += '<div class="feed-empty feed-empty-mid">В этот день событий нет — ближайшие события показаны слева и справа</div>';
     }
     html += '</div>';
     html += '<div class="feed-sils">' + after.map(e => sil(e, 'after')).join('') + '</div>';
@@ -304,7 +267,16 @@ function esc(s) {
 /* ---------------------------------------------------------- клики ленты */
 
 $('#feed-list').addEventListener('click', e => {
-  const card = e.target.closest('.feed-card, .feed-chip, .feed-sil');
+  const sideEvent = e.target.closest('.feed-sil');
+  if (sideEvent) {
+    // Боковой силуэт только выбирает дату: статья открывается отдельным
+    // кликом по карточке события после переноса в центр ленты.
+    e.preventDefault();
+    selectEventDate(sideEvent.dataset.id);
+    return;
+  }
+
+  const card = e.target.closest('.feed-card, .feed-chip');
   if (!card) return;
   const btn = e.target.closest('.feed-to-map');
   if (btn) {
@@ -314,6 +286,13 @@ $('#feed-list').addEventListener('click', e => {
   }
   openItem(card.dataset.kind, card.dataset.id);
 });
+
+function selectEventDate(id) {
+  const event = DATA.events.find(x => x.id === id);
+  if (!event) return;
+  const i = dates.indexOf(event.year);
+  if (i >= 0) applyStep(i);
+}
 
 function openItem(kind, id) {
   const coll = kind === 'event' ? DATA.events : DATA.entities;
@@ -521,7 +500,7 @@ function wireSwipe() {
     const dx = t.clientX - x0, dy = t.clientY - y0;
     if (Date.now() - t0 > 900) return;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-    if (dx < 0) go(idx + 1); else go(idx - 1);   // влево → позже, вправо → раньше
+    if (dx < 0) stepToEvent(1); else stepToEvent(-1);   // влево → позже, вправо → раньше
   }, { passive: true });
 }
 

@@ -142,6 +142,11 @@
   var firstIdle = false;
   var lastFilterAt = 0;
   var lastFilteredYear = null;
+  var lastEventsFilterAt = 0;
+  var lastEventsFilterYear = null;
+  var eventsFilterTimer = null;
+  var panelRenderAt = 0;
+  var panelRenderTimer = null;
 
   /* ========================= Элементы ====================== */
 
@@ -202,7 +207,12 @@
 
   function applyDateFilter(force) {
     if (!styleReady || typeof map.filterByDate !== 'function') return;
-    if (force) { doFilter(); return; }
+    if (force) {
+      clearTimeout(pendingFilterTimer);
+      pendingFilterTimer = null;
+      doFilter();
+      return;
+    }
     if (state.year === lastFilteredYear && !pendingFilterTimer) return;
     var elapsed = Date.now() - lastFilterAt;
     if (elapsed >= C.filterThrottleMs) {
@@ -245,6 +255,7 @@
   }
 
   function updateEventsFilter() {
+    if (eventsFilterTimer) { clearTimeout(eventsFilterTimer); eventsFilterTimer = null; }
     if (!styleReady || !map.getLayer('events-dots')) return;
     var w = windowForYear(state.year), y = state.year;
     map.setFilter('events-dots', [
@@ -252,6 +263,26 @@
       ['>=', ['get', 'year'], y - w],
       ['<=', ['get', 'year'], y + w]
     ]);
+    lastEventsFilterAt = Date.now();
+    lastEventsFilterYear = y;
+  }
+
+  // При перетаскивании временной шкалы применяем фильтр карты не чаще,
+  // чем задано в config.js; отложенный вызов всегда использует последний год.
+  function scheduleEventsFilter(force) {
+    if (!styleReady || !map.getLayer('events-dots')) return;
+    if (!force && state.year === lastEventsFilterYear) return;
+    var delay = C.filterThrottleMs - (Date.now() - lastEventsFilterAt);
+    if (force || delay <= 0) {
+      clearTimeout(eventsFilterTimer);
+      eventsFilterTimer = null;
+      updateEventsFilter();
+    } else if (!eventsFilterTimer) {
+      eventsFilterTimer = setTimeout(function () {
+        eventsFilterTimer = null;
+        updateEventsFilter();
+      }, delay);
+    }
   }
 
   /* ============ Слой современных границ (Natural Earth) ==== */
@@ -380,6 +411,7 @@
 
   function renderPanel() {
     if (!elPanelList) return;
+    if (panelRenderTimer) { clearTimeout(panelRenderTimer); panelRenderTimer = null; }
 
     var y = state.year;
     var w = windowForYear(y);
@@ -428,6 +460,20 @@
     if (elFab) {
       elFab.textContent = (state.tab === 'events' ? 'События · ' : 'Люди · ') +
         (state.tab === 'events' ? (eventsData ? Math.min(visibleEvents().length, C.maxEventsInPanel) : 0) : pN);
+    }
+    panelRenderAt = Date.now();
+  }
+
+  function schedulePanelRender(force) {
+    if (force || Date.now() - panelRenderAt >= C.filterThrottleMs) {
+      clearTimeout(panelRenderTimer);
+      panelRenderTimer = null;
+      renderPanel();
+    } else if (!panelRenderTimer) {
+      panelRenderTimer = setTimeout(function () {
+        panelRenderTimer = null;
+        renderPanel();
+      }, C.filterThrottleMs - (Date.now() - panelRenderAt));
     }
   }
 
@@ -672,8 +718,8 @@
     }
 
     applyDateFilter(opts.force);
-    updateEventsFilter();
-    if (changed || opts.force) renderPanel();
+    if (changed || opts.force) scheduleEventsFilter(opts.force);
+    if (changed || opts.force) schedulePanelRender(opts.force);
     scheduleColorRefresh(); // цвета — после смены года (дебаунс внутри)
     syncUrl();
   }
@@ -700,8 +746,14 @@
     }
   });
 
-  $('#btn-back').addEventListener('click', function () { stopPlay(); setYear(state.year - 1); });
-  $('#btn-fwd').addEventListener('click', function () { stopPlay(); setYear(state.year + 1); });
+  $('#btn-back').addEventListener('click', function () {
+    stopPlay();
+    if (window.FEED && typeof window.FEED.step === 'function') window.FEED.step(-1);
+  });
+  $('#btn-fwd').addEventListener('click', function () {
+    stopPlay();
+    if (window.FEED && typeof window.FEED.step === 'function') window.FEED.step(1);
+  });
 
   /* =================== Воспроизведение (▶) ================= */
 
