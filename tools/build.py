@@ -147,6 +147,8 @@ def main():
             "region": fm.get("region") or lane_ids[fm["lane"]],
             "icon": fm.get("icon", "massive"), "scale": int(fm.get("scale", 2)),
             "summary": fm.get("summary", ""), "tags": fm.get("tags") or [], "path": rel,
+            # необязательные координаты [широта, долгота] — точка появится на карте
+            "coords": fm.get("coords"),
         })
     events.sort(key=lambda e: e["year"])
 
@@ -205,8 +207,43 @@ def main():
     with open(dest, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
 
+    # Точки событий на карте: сохраняем базовые точки карты и добавляем
+    # события с координатами из content/**.md (поле coords: [широта, долгота]).
+    geo_dest = os.path.join(ROOT, "assets", "map", "data", "events.geojson")
+    try:
+        with open(geo_dest, encoding="utf-8") as f:
+            geo = json.load(f)
+    except (OSError, ValueError):
+        geo = {"type": "FeatureCollection", "features": []}
+    features = [ft for ft in geo.get("features", [])
+                if not ft.get("properties", {}).get("content")]
+    n_dots = 0
+    for e in events:
+        c = e.get("coords")
+        if not c or len(c) != 2:
+            continue
+        try:
+            lat, lon = float(c[0]), float(c[1])
+        except (TypeError, ValueError):
+            warnings.append(f"{e['path']}: coords не числа — точка пропущена")
+            continue
+        features.append({
+            "type": "Feature",
+            "properties": {"year": e["year"], "title": e.get("name"),
+                           "kind": e.get("icon", "событие"),
+                           "text": e.get("summary", ""),
+                           "content": e.get("path", "")},
+            "geometry": {"type": "Point", "coordinates": [lon, lat]},
+        })
+        n_dots += 1
+    with open(geo_dest, "w", encoding="utf-8") as f:
+        json.dump({"type": "FeatureCollection", "features": features},
+                  f, ensure_ascii=False, separators=(",", ":"))
+
     size = os.path.getsize(dest) / 1024
     print(f"data/index.json — {size:.0f} КБ")
+    if n_dots:
+        print(f"  точек событий на карте (с coords): {n_dots}")
     print("  регионы: %d, дорожки: %d, сущности: %d, события: %d, миграции: %d"
           % (len(regions), len(lane_ids), len(entities), len(events), len(migrations)))
     for w in warnings:

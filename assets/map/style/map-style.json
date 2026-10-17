@@ -1,0 +1,275 @@
+{
+  "version": 8,
+  "name": "Хронокарта",
+  "glyphs": "https://www.openhistoricalmap.org/map-styles/fonts/{fontstack}/{range}.pbf",
+  "sources": {
+    "land": {
+      "type": "vector",
+      "url": "https://vtiles.openhistoricalmap.org/maps/osm_land.json"
+    },
+    "ne": {
+      "type": "vector",
+      "url": "https://vtiles.openhistoricalmap.org/maps/ne.json"
+    },
+    "ohm": {
+      "type": "vector",
+      "url": "https://vtiles.openhistoricalmap.org/maps/osm.json"
+    },
+    "admin": {
+      "type": "vector",
+      "url": "https://vtiles.openhistoricalmap.org/maps/ohm_admin.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#a3c5dd" }
+    },
+    {
+      "id": "land-fill",
+      "type": "fill",
+      "source": "land",
+      "source-layer": "land",
+      "paint": { "fill-color": "#f4efe2" }
+    },
+    {
+      "id": "water-fill",
+      "type": "fill",
+      "source": "ne",
+      "source-layer": "water_areas",
+      "paint": { "fill-color": "#c2dcea" }
+    },
+    {
+      "id": "land-stroke",
+      "type": "line",
+      "source": "land",
+      "source-layer": "land",
+      "paint": {
+        "line-color": "#9db4c4",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.4, 5, 0.8, 10, 1.1],
+        "line-opacity": 0.7
+      }
+    },
+    {
+      "id": "fill-regions",
+      "type": "fill",
+      "source": "admin",
+      "source-layer": "boundaries",
+      "minzoom": 6,
+      "filter": ["all", ["in", ["get", "admin_level"], ["literal", [3, 4]]]],
+      "layout": { "visibility": "none" },
+      "paint": {
+        "fill-color": "#d8cfbc",
+        "fill-opacity": 0.4
+      }
+    },
+    {
+      "id": "fill-countries",
+      "type": "fill",
+      "source": "admin",
+      "source-layer": "boundaries",
+      "filter": ["all", ["==", ["get", "admin_level"], 2]],
+      "paint": {
+        "fill-color": "#d8cfbc",
+        "fill-opacity": 0.5
+      }
+    },
+    {
+      "id": "fill-empires",
+      "type": "fill",
+      "source": "admin",
+      "source-layer": "boundaries",
+      "filter": ["all", ["==", ["get", "admin_level"], 1]],
+      "paint": {
+        "fill-color": "#cfc4ad",
+        "fill-opacity": 0.55
+      }
+    },
+    {
+      "id": "borders-regions",
+      "type": "line",
+      "source": "ohm",
+      "source-layer": "land_ohm_lines",
+      "minzoom": 5,
+      "filter": ["all", [">=", ["get", "admin_level"], 3]],
+      "layout": { "visibility": "none" },
+      "paint": {
+        "line-color": "#8b7c64",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 9, 0.8, 13, 1.1],
+        "line-opacity": 0.65
+      }
+    },
+    {
+      "id": "borders-countries",
+      "type": "line",
+      "source": "ohm",
+      "source-layer": "land_ohm_lines",
+      "filter": ["all", ["==", ["get", "admin_level"], 2]],
+      "paint": {
+        "line-color": "#77674f",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.6, 3, 1, 7, 1.5, 12, 2],
+        "line-opacity": 0.95
+      }
+    },
+    {
+      "id": "borders-empires",
+      "type": "line",
+      "source": "ohm",
+      "source-layer": "land_ohm_lines",
+      "filter": ["all", ["==", ["get", "admin_level"], 1]],
+      "paint": {
+        "line-color": "#4a3c2e",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 1, 3, 1.6, 7, 2.4],
+        "line-opacity": 0.95
+      }
+    },
+    {
+      "id": "city-dots",
+      "type": "circle",
+      "source": "ohm",
+      "source-layer": "place_points_centroids",
+      "minzoom": 5,
+      "filter": ["all", ["==", ["get", "type"], "city"]],
+      "paint": {
+        "circle-color": "#4a3f33",
+        "circle-radius": [
+          "interpolate", ["linear"], ["zoom"],
+          5, ["case", ["==", ["get", "capital"], "yes"], 3.4, 1.6],
+          9, ["case", ["==", ["get", "capital"], "yes"], 3.4, 2.1],
+          13, ["case", ["==", ["get", "capital"], "yes"], 3.4, 2.5]
+        ],
+        "circle-stroke-color": "#fdf8ee",
+        "circle-stroke-width": 0.9,
+        "circle-opacity": 0.9
+      }
+    },
+    {
+      "id": "labels-empires",
+      "type": "symbol",
+      "source": "ohm",
+      "source-layer": "land_ohm_centroids",
+      "minzoom": 1,
+      "filter": [
+        "all",
+        ["==", ["get", "admin_level"], 1],
+        ["any", ["has", "name"], ["has", "name_ru"]]
+      ],
+      "layout": {
+        "text-field": ["coalesce", ["get", "name_ru"], ["get", "name"]],
+        "text-font": ["OpenHistorical Bold"],
+        "text-transform": "uppercase",
+        "text-letter-spacing": 0.06,
+        "text-max-width": 7,
+        "text-size": ["interpolate", ["linear"], ["zoom"], 1, 9, 4, 12, 8, 15, 12, 18],
+        "symbol-sort-key": ["get", "area"],
+        "symbol-placement": "point"
+      },
+      "paint": {
+        "text-color": "#43372a",
+        "text-halo-color": "rgba(253, 250, 242, 0.9)",
+        "text-halo-width": 1.4,
+        "text-halo-blur": 0.6
+      }
+    },
+    {
+      "id": "labels-countries",
+      "type": "symbol",
+      "source": "ohm",
+      "source-layer": "land_ohm_centroids",
+      "minzoom": 2,
+      "filter": [
+        "all",
+        ["==", ["get", "admin_level"], 2],
+        ["any", ["has", "name"], ["has", "name_ru"]]
+      ],
+      "layout": {
+        "text-field": ["coalesce", ["get", "name_ru"], ["get", "name"]],
+        "text-font": ["OpenHistorical Bold"],
+        "text-max-width": 7,
+        "text-size": ["interpolate", ["linear"], ["zoom"], 2, 9, 5, 12, 9, 15, 12, 17],
+        "symbol-sort-key": ["get", "area"],
+        "symbol-placement": "point"
+      },
+      "paint": {
+        "text-color": "#4a3f31",
+        "text-halo-color": "rgba(253, 250, 242, 0.95)",
+        "text-halo-width": 1.4,
+        "text-halo-blur": 0.6
+      }
+    },
+    {
+      "id": "labels-capitals",
+      "type": "symbol",
+      "source": "ohm",
+      "source-layer": "place_points_centroids",
+      "minzoom": 4,
+      "filter": [
+        "all",
+        ["==", ["get", "type"], "city"],
+        ["==", ["get", "capital"], "yes"],
+        ["any", ["has", "name"], ["has", "name_ru"]]
+      ],
+      "layout": {
+        "text-field": ["coalesce", ["get", "name_ru"], ["get", "name"]],
+        "text-font": ["OpenHistorical Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 10, 8, 13, 12, 15],
+        "text-anchor": "top",
+        "text-offset": [0, 0.35],
+        "text-max-width": 7
+      },
+      "paint": {
+        "text-color": "#2f281f",
+        "text-halo-color": "rgba(253, 250, 242, 0.95)",
+        "text-halo-width": 1.3
+      }
+    },
+    {
+      "id": "labels-cities",
+      "type": "symbol",
+      "source": "ohm",
+      "source-layer": "place_points_centroids",
+      "minzoom": 7,
+      "filter": [
+        "all",
+        ["==", ["get", "type"], "city"],
+        ["!=", ["get", "capital"], "yes"],
+        ["any", ["has", "name"], ["has", "name_ru"]]
+      ],
+      "layout": {
+        "text-field": ["coalesce", ["get", "name_ru"], ["get", "name"]],
+        "text-font": ["OpenHistorical"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 7, 11, 11, 13, 15, 15],
+        "text-anchor": "top",
+        "text-offset": [0, 0.35],
+        "text-max-width": 7
+      },
+      "paint": {
+        "text-color": "#453c30",
+        "text-halo-color": "rgba(253, 250, 242, 0.95)",
+        "text-halo-width": 1.2
+      }
+    },
+    {
+      "id": "labels-seas",
+      "type": "symbol",
+      "source": "ohm",
+      "source-layer": "place_points_centroids",
+      "minzoom": 1,
+      "filter": ["all", ["==", ["get", "type"], "sea"]],
+      "layout": {
+        "text-field": ["coalesce", ["get", "name_ru"], ["get", "name"]],
+        "text-font": ["OpenHistorical Italic"],
+        "text-transform": "uppercase",
+        "text-letter-spacing": 0.14,
+        "text-size": ["interpolate", ["linear"], ["zoom"], 1, 10, 4, 12, 8, 14],
+        "text-max-width": 8
+      },
+      "paint": {
+        "text-color": "#4b7ba3",
+        "text-halo-color": "rgba(240, 248, 253, 0.8)",
+        "text-halo-width": 1
+      }
+    }
+  ]
+}

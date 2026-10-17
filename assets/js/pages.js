@@ -21,7 +21,8 @@ export async function loadData() {
 }
 
 export function topbar(active) {
-  const links = [['index.html', 'Таблица'], ['pages/regions.html', 'Регионы'],
+  const links = [['index.html', 'Карта'], ['table.html', 'Таблица'],
+                 ['pages/regions.html', 'Регионы'],
                  ['pages/events.html', 'События'], ['pages/entity.html', 'Статьи'],
                  ['pages/about.html', 'О проекте']];
   return `<header class="topbar">

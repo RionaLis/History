@@ -3,22 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Синхронологическая таблица всемирной истории</title>
-<meta name="description" content="Интерактивная синхронологическая таблица: виды древних гоминин, культуры, миграции и события мировой истории от ≈4,2 млн лет назад до 2000 г. н.э.">
+<title>Хронолента мира — карта, таблица и хронология</title>
+<meta name="description" content="Историческая карта границ государств, синхронологическая таблица и лента событий: от античности до наших дней в одном окне.">
 <link rel="stylesheet" href="assets/css/main.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23283044'/><rect x='2' y='3' width='12' height='2' fill='%23e0a96d'/><rect x='2' y='7' width='9' height='2' fill='%2366bb6a'/><rect x='2' y='11' width='6' height='2' fill='%234dd0e1'/></svg>">
+<link rel="stylesheet" href="assets/map/maplibre-gl.css">
+<link rel="stylesheet" href="assets/css/map.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23283044'/><rect x='2' y='2' width='12' height='2' fill='%23e0a96d'/><rect x='2' y='7' width='9' height='2' fill='%2366bb6a'/><rect x='2' y='11' width='6' height='2' fill='%234dd0e1'/></svg>">
 </head>
-<body>
+<body class="home-main">
+
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark"></span>
     <div>
       <b>Хронолента мира</b>
-      <small>синхронологическая таблица · ≈4,2 млн лет назад — 2000 н.э.</small>
+      <small>карта · таблица · лента хронологии</small>
     </div>
   </div>
   <nav class="nav">
-    <a class="active" href="index.html">Таблица</a>
+    <a class="active" href="index.html">Карта</a>
+    <a href="table.html">Таблица</a>
     <a href="pages/regions.html">Регионы</a>
     <a href="pages/events.html">События</a>
     <a href="pages/entity.html">Статьи</a>
@@ -30,102 +34,206 @@
   </div>
 </header>
 
-<div class="toolbar">
-  <div class="group">
-    <span class="lbl">Масштаб</span>
-    <button class="btn" id="zoomOut" title="Отдалить (Ctrl + колесо вниз)">−</button>
-    <input type="range" id="zoomRange" min="0" max="1000" value="0" title="Масштаб времени">
-    <button class="btn" id="zoomIn" title="Приблизить (Ctrl + колесо вверх)">+</button>
-    <span class="readout" id="spanOut">14000 лет на экране</span>
-  </div>
-  <div class="group">
-    <button class="btn chip" data-span="all">Вся история</button>
-    <button class="btn chip" data-span="2000">2000 лет</button>
-    <button class="btn chip" data-span="1000">1000 лет</button>
-    <button class="btn chip" data-span="500">500 лет</button>
-    <button class="btn chip" data-span="200">200 лет</button>
-  </div>
-  <div class="group">
-    <span class="lbl">Строки</span>
-    <input type="range" id="rowRange" min="9" max="44" step="1" value="16" title="Высота строк">
-    <button class="btn" id="fitRows" title="Вписать все регионы по высоте экрана">⤢ Вписать</button>
-  </div>
-  <div class="group">
-    <button class="btn toggle" id="btnFilters">Фильтры</button>
-    <button class="btn toggle" id="btnLegend">Легенда</button>
-    <label class="switch"><input type="checkbox" id="chkLinear"> равномерная шкала</label>
-  </div>
-  <div class="group right">
-    <span class="hint">прокрутка — движение по таблице · щипок или Ctrl/⌘+колесо — растянуть шкалу · тянуть мышью — сдвиг · 2 клика — вписать объект</span>
-  </div>
-</div>
+<main class="main-flow">
 
-<div class="stage" id="stage">
-  <canvas id="chart"></canvas>
-  <div class="tooltip" id="tip" hidden></div>
+  <!-- ==================== ЗОНА 1 · КАРТА ==================== -->
+  <section class="zone map-zone" aria-label="Историческая карта">
+    <div id="map" role="application" aria-label="Историческая карта"></div>
 
-  <div class="popover" id="filters" hidden>
-    <div class="pop-head">Фильтры <button class="x" data-close="filters">×</button></div>
-    <div class="pop-body">
-      <div class="col">
-        <h4>Регионы <a href="#" data-all="regions">все</a> / <a href="#" data-none="regions">ни одного</a></h4>
-        <div id="fRegions" class="checks"></div>
-      </div>
-      <div class="col">
-        <h4>Типы объектов <a href="#" data-all="types">все</a> / <a href="#" data-none="types">ни одного</a></h4>
-        <div id="fTypes" class="checks"></div>
-        <h4>Эпохи</h4>
-        <div id="fEras" class="chips"></div>
-      </div>
-      <div class="col">
-        <h4>Значки событий <a href="#" data-all="icons">все</a> / <a href="#" data-none="icons">ни одного</a></h4>
-        <div id="fIcons" class="checks"></div>
-      </div>
-      <div class="col">
-        <h4>Слои</h4>
-        <label class="switch"><input type="checkbox" id="chkEvents"> события</label>
-        <label class="switch"><input type="checkbox" id="chkMig" checked> линии переселений</label>
-        <label class="switch"><input type="checkbox" id="chkLabels" checked> подписи на лентах</label>
-        <p class="pop-hint">Значки событий сейчас отключены — таблица показывает народы,
-           культуры, государства и переселения. Включите слой «события», чтобы
-           вернуть их на схему.</p>
+    <div id="hint" class="card">
+      <span>Вращайте глобус мышкой или пальцем · колесо — приблизить · год — шкала под картой</span>
+      <button id="hint-close" type="button" title="Скрыть" aria-label="Скрыть подсказку">×</button>
+    </div>
+
+    <header id="site-header" class="card">
+      <h1>Карта мира</h1>
+      <p class="subtitle">Границы государств и события — на любой год</p>
+    </header>
+
+    <div id="header-actions">
+      <button id="btn-home" class="btn card" type="button" title="Вернуться к стартовому виду" aria-label="К стартовому виду">⌂</button>
+      <button id="btn-projection" class="btn card" type="button" aria-pressed="true" title="Переключить глобус / плоскую карту">Карта</button>
+      <div class="layers-wrap">
+        <button id="btn-layers" class="btn card" type="button" aria-expanded="false" title="Включить и выключить слои">☰ Слои</button>
+        <div id="layers-menu" class="card">
+          <label><input type="checkbox" id="cb-fills" checked> Заливки государств</label>
+          <label><input type="checkbox" id="cb-borders" checked> Линии границ</label>
+          <label><input type="checkbox" id="cb-labels" checked> Названия</label>
+          <label><input type="checkbox" id="cb-cities" checked> Города</label>
+          <label><input type="checkbox" id="cb-regions"> Регионы и области</label>
+          <label><input type="checkbox" id="cb-modern"> Современные границы</label>
+          <label><input type="checkbox" id="cb-events" checked> События</label>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="popover" id="legend" hidden>
-    <div class="pop-head">Как читать таблицу <button class="x" data-close="legend">×</button></div>
-    <div class="pop-body legend-body">
-      <div class="col">
-        <h4>Оси</h4>
-        <p><b>По вертикали</b> — регионы мира и их суб-регионы (дорожки).<br>
-           <b>По горизонтали</b> — время, слева направо.</p>
-        <h4>Ленты</h4>
-        <p>Лента — народ, культура или государство. <b>Толщина ленты</b> = доля площади
-           суб-региона, которую занимает государство; она меняется во времени.
-           Государство, охватившее несколько регионов, рисуется лентой в каждом из них.</p>
-        <p>Наведите курсор — краткая справка, щёлкните — подробная статья.</p>
+    <aside id="events-panel" class="card" aria-label="События и люди выбранного года">
+      <div class="panel-head">
+        <div>
+          <h2>В это время</h2>
+          <span id="panel-year" class="panel-year"></span>
+        </div>
+        <button id="panel-close" type="button" title="Закрыть" aria-label="Закрыть">×</button>
       </div>
-      <div class="col">
-        <h4>Значки событий</h4>
-        <p class="pop-hint">Слой событий по умолчанию выключен: включите его в «Фильтрах».</p>
-        <div id="legendIcons" class="legend-icons"></div>
+      <div class="panel-tabs" role="tablist">
+        <button id="tab-events" class="panel-tab is-active" data-tab="events" role="tab" aria-selected="true">События · <span id="tab-events-n">0</span></button>
+        <button id="tab-people" class="panel-tab" data-tab="people" role="tab" aria-selected="false">Люди · <span id="tab-people-n">0</span></button>
       </div>
-      <div class="col">
-        <h4>Линии</h4>
-        <div id="legendLines" class="legend-icons"></div>
-        <h4>Эпохи</h4>
-        <div id="legendEras" class="chips"></div>
+      <div id="events-list" class="tab-pane"></div>
+      <div id="people-list" class="tab-pane is-hidden"></div>
+    </aside>
+
+    <button id="events-fab" type="button">События</button>
+
+    <div id="loader">
+      <div class="spinner"></div>
+      <span>Загрузка исторической карты…</span>
+    </div>
+    <div id="error-banner" class="is-hidden"></div>
+  </section>
+
+  <!-- ============== ЗОНА 2 · ЭЛЕМЕНТЫ УПРАВЛЕНИЯ ============== -->
+  <section class="zone controls-zone" aria-label="Управление">
+    <div id="quick-jumps" class="card" aria-label="Быстрые прыжки к эпохам и событиям"></div>
+    <div id="timeline" class="card">
+      <div id="year-display" aria-live="polite">…</div>
+      <div class="tl-strip">
+        <button id="btn-back" class="tl-arrow" type="button" title="На год назад" aria-label="На год назад">←</button>
+        <canvas id="minimap" title="Шкала времени: перетащите рамку — красная черта выбранной даты."></canvas>
+        <button id="btn-fwd" class="tl-arrow" type="button" title="На год вперёд" aria-label="На год вперёд">→</button>
       </div>
     </div>
-  </div>
-</div>
+  </section>
 
-<div class="bottombar">
-  <canvas id="minimap" title="Обзор: перетащите рамку"></canvas>
-  <div class="status" id="status"></div>
-</div>
+  <!-- ============= ЗОНА 3 · ЛЕНТА ХРОНОЛОГИИ ============= -->
+  <section class="zone feed-zone" aria-label="Лента хронологии">
+    <div class="feed-head">
+      <div class="feed-title">
+        <b>Лента хронологии</b>
+        <span class="zone-sub">‹ › или свайп — соседние события · рамка на шкале сверху — окно масштаба</span>
+      </div>
+      <div class="feed-nav">
+        <button id="feed-prev" type="button" title="Предыдущая дата" aria-label="Предыдущая дата">‹</button>
+        <span id="feed-date" aria-live="polite">…</span>
+        <button id="feed-next" type="button" title="Следующая дата" aria-label="Следующая дата">›</button>
+      </div>
+    </div>
+    <div id="feed-list"></div>
+  </section>
 
+  <!-- ============ ЗОНА 4 · СИНХРОНОЛОГИЧЕСКАЯ ТАБЛИЦА ============ -->
+  <section class="zone table-zone" aria-label="Синхронологическая таблица">
+    <div class="zone-head">
+      <b>Синхронологическая таблица</b>
+      <span class="zone-sub">регионы × время · щёлкните объект — откроется статья</span>
+      <a class="zone-more" href="table.html">открыть на весь экран →</a>
+    </div>
+
+    <div class="toolbar">
+      <div class="group">
+        <span class="lbl">Масштаб</span>
+        <button class="btn" id="zoomOut" title="Отдалить (Ctrl + колесо вниз)">−</button>
+        <input type="range" id="zoomRange" min="0" max="1000" value="0" title="Масштаб времени">
+        <button class="btn" id="zoomIn" title="Приблизить (Ctrl + колесо вверх)">+</button>
+        <span class="readout" id="spanOut">14000 лет на экране</span>
+      </div>
+      <div class="group">
+        <button class="btn chip" data-span="all">Вся история</button>
+        <button class="btn chip" data-span="2000">2000 лет</button>
+        <button class="btn chip" data-span="1000">1000 лет</button>
+        <button class="btn chip" data-span="500">500 лет</button>
+        <button class="btn chip" data-span="200">200 лет</button>
+      </div>
+      <div class="group">
+        <span class="lbl">Строки</span>
+        <input type="range" id="rowRange" min="9" max="44" step="1" value="16" title="Высота строк">
+        <button class="btn" id="fitRows" title="Вписать все регионы по высоте экрана">⤢ Вписать</button>
+      </div>
+      <div class="group">
+        <button class="btn toggle" id="btnFilters">Фильтры</button>
+        <button class="btn toggle" id="btnLegend">Легенда</button>
+        <label class="switch"><input type="checkbox" id="chkLinear"> равномерная шкала</label>
+      </div>
+      <div class="group right">
+        <span class="hint">колесо — масштаб времени · тянуть — сдвиг · 2 клика — вписать объект</span>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <canvas id="chart"></canvas>
+      <div class="tooltip" id="tip" hidden></div>
+
+      <div class="popover" id="filters" hidden>
+        <div class="pop-head">Фильтры <button class="x" data-close="filters">×</button></div>
+        <div class="pop-body">
+          <div class="col">
+            <h4>Регионы <a href="#" data-all="regions">все</a> / <a href="#" data-none="regions">ни одного</a></h4>
+            <div id="fRegions" class="checks"></div>
+          </div>
+          <div class="col">
+            <h4>Типы объектов <a href="#" data-all="types">все</a> / <a href="#" data-none="types">ни одного</a></h4>
+            <div id="fTypes" class="checks"></div>
+            <h4>Эпохи</h4>
+            <div id="fEras" class="chips"></div>
+          </div>
+          <div class="col">
+            <h4>Значки событий <a href="#" data-all="icons">все</a> / <a href="#" data-none="icons">ни одного</a></h4>
+            <div id="fIcons" class="checks"></div>
+          </div>
+          <div class="col">
+            <h4>Слои</h4>
+            <label class="switch"><input type="checkbox" id="chkEvents"> события</label>
+            <label class="switch"><input type="checkbox" id="chkMig" checked> линии переселений</label>
+            <label class="switch"><input type="checkbox" id="chkLabels" checked> подписи на лентах</label>
+            <p class="pop-hint">Значки событий сейчас отключены — таблица показывает народы,
+               культуры, государства и переселения. Включите слой «события», чтобы
+               вернуть их на схему.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="popover" id="legend" hidden>
+        <div class="pop-head">Как читать таблицу <button class="x" data-close="legend">×</button></div>
+        <div class="pop-body legend-body">
+          <div class="col">
+            <h4>Оси</h4>
+            <p><b>По вертикали</b> — регионы мира и их суб-регионы (дорожки).<br>
+               <b>По горизонтали</b> — время, слева направо.</p>
+            <h4>Ленты</h4>
+            <p>Лента — народ, культура или государство. <b>Толщина ленты</b> = доля площади
+               суб-региона, которую занимает государство; она меняется во времени.
+               Государство, охватившее несколько регионов, рисуется лентой в каждом из них.</p>
+            <p>Наведите курсор — краткая справка, щёлкните — подробная статья.</p>
+          </div>
+          <div class="col">
+            <h4>Значки событий</h4>
+            <p class="pop-hint">Слой событий по умолчанию выключен: включите его в «Фильтрах».</p>
+            <div id="legendIcons" class="legend-icons"></div>
+          </div>
+          <div class="col">
+            <h4>Линии</h4>
+            <div id="legendLines" class="legend-icons"></div>
+            <h4>Эпохи</h4>
+            <div id="legendEras" class="chips"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottombar">
+      <div class="status" id="status"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  Данные карты © <a href="https://www.openhistoricalmap.org/copyright" target="_blank" rel="noopener">OpenHistoricalMap</a> и OSM ·
+  контент — markdown-файлы в папке <code>content/</code> ·
+  <a href="pages/about.html">о проекте</a>
+</footer>
+
+<!-- Панель статьи (общая для карты, таблицы и ленты) -->
 <aside class="panel" id="panel" hidden>
   <div class="panel-head">
     <div class="panel-title" id="panelTitle"></div>
@@ -138,6 +246,17 @@
   <div class="panel-body" id="panelBody"></div>
 </aside>
 
+<noscript>
+  <div id="nojs">Для работы карты и таблицы нужен JavaScript — включите его в браузере.</div>
+</noscript>
+
+<!-- Карта (классические скрипты) -->
+<script src="assets/map/maplibre-gl.js"></script>
+<script src="assets/map/maplibre-gl-dates.js"></script>
+<script src="assets/map/js/config.js"></script>
+<script src="assets/js/map-app.js"></script>
+<!-- Таблица (её штатный модуль) + лента и связки -->
 <script type="module" src="assets/js/app.js"></script>
+<script type="module" src="assets/js/feed.js"></script>
 </body>
 </html>

@@ -137,8 +137,12 @@ export class Chart {
     const y1 = Math.min(this.scale.yearMax, y0 + span);
     const du = Math.max(1e-6, this.scale.unit(y1) - this.scale.unit(y0));
     this.view.k = 1 / du;
+    // левый край окна — точно в y0: на нелинейной шкале unit(центр) ≠ середины
+    // unit-окна, и «центровка по середине» уводила рамку в плотный участок.
+    this.view.ux = this.scale.unit(y0);
     this.clampView();
-    this.centerOn((y0 + y1) / 2);
+    this.draw();
+    this.onView(this);
   }
 
   centerOn(year) {
@@ -207,6 +211,27 @@ export class Chart {
     this._drawGutter(ctx);
     this._drawAxis(ctx);
     this._drawScrollbar(ctx);
+    this._drawTimeMarker(ctx);
+  }
+
+  /** Красная черта выбранной даты (с шкалой карты) на большой таблице. */
+  _drawTimeMarker(ctx) {
+    const st = window.chronomap && window.chronomap.state;
+    if (!st || typeof st.year !== 'number') return;
+    const px = this.plotX(), pw = this.plotW();
+    const x = this.xOf(st.year);
+    if (!(x >= px - 1 && x <= px + pw + 1)) return;
+    const py = this.plotY(), ph = this.plotH();
+    ctx.save();
+    ctx.strokeStyle = '#d13b3b';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, py); ctx.lineTo(x, py + ph); ctx.stroke();
+    // засечка на оси дат
+    ctx.fillStyle = '#d13b3b';
+    ctx.beginPath();
+    ctx.moveTo(x - 5, py - 9); ctx.lineTo(x + 5, py - 9); ctx.lineTo(x, py - 1);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 
   _drawBands(ctx) {
@@ -880,6 +905,7 @@ export class Chart {
   _bindEvents() {
     const c = this.canvas;
     let drag = null;
+    let lastMoved = 0;   // сколько пикселей прошли до отпускания кнопки (пан ≠ выбор)
 
     c.addEventListener('mousedown', ev => {
       const r = c.getBoundingClientRect();
@@ -908,10 +934,12 @@ export class Chart {
 
     window.addEventListener('mouseup', () => {
       if (drag) c.classList.remove('dragging');
+      lastMoved = drag ? drag.moved : 0;
       drag = null;
     });
 
     c.addEventListener('click', ev => {
+      if (lastMoved > 5) { lastMoved = 0; return; }   // это был пан полотна, а не щелчок по объекту
       const r = c.getBoundingClientRect();
       const hit = this.hitTest(ev.clientX - r.left, ev.clientY - r.top);
       if (hit && ['entity', 'event', 'migration', 'lane', 'era'].includes(hit.kind)) {

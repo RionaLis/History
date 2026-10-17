@@ -1,0 +1,1020 @@
+/* ============================================================
+   Хронолента + Карта — стили новой главной страницы.
+   Подключаются ПОСЛЕ main.css и переопределяют только то,
+   что относится к новым зонам (карта · управление · лента).
+   Внутренности таблицы не трогаем.
+   ============================================================ */
+
+/* ---------- Страница скроллится (наследник table-раскладки) ---------- */
+html, body { height: auto; }
+body.home-main {
+  overflow: auto;
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.home-main .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+}
+
+/* ============================================================
+   ЗОНЫ
+   ============================================================ */
+
+.zone { position: relative; }
+
+.zone-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: #f1ede4;
+  border-bottom: 1px solid var(--line);
+}
+.zone-head b { font-size: 15px; }
+.zone-sub { font-size: 12px; color: #8a8575; }
+.zone-more { margin-left: auto; font-size: 13px; }
+
+.foot {
+  padding: 14px 16px 26px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #7a7568;
+}
+.foot a { color: var(--accent-2); }
+.foot code {
+  background: #ece8de;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+/* ============================================================
+   ЗОНА 1 · КАРТА
+   ============================================================ */
+
+/* Хронокартные переменные живут только внутри карт-зон,
+   чтобы не перекрасить тему таблицы. */
+.map-zone, .controls-zone {
+  --panel: rgba(38, 32, 25, 0.92);
+  --panel-border: rgba(217, 164, 65, 0.35);
+  --text: #f4ecda;
+  --text-dim: #cbbfa5;
+  --accent-cm: #d9a441;
+  --accent-soft: #f2d38b;
+  --shadow: 0 6px 24px rgba(20, 16, 10, 0.35);
+  --radius: 12px;
+  --timeline-h: 96px;
+}
+
+.map-zone {
+  height: 50vh;
+  min-height: 340px;
+  background: #a3c5dd;
+  border-bottom: 1px solid var(--line);
+}
+
+.map-zone #map { position: absolute; inset: 0; }
+
+/* ---------- Общая карточка (только карт-зоны) ---------- */
+.map-zone .card,
+.controls-zone .card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--text);
+}
+
+/* ---------- Шапка карты ---------- */
+#site-header {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 8px 14px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+#site-header h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent-soft);
+}
+
+#site-header .subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ---------- Кнопки сверху справа ---------- */
+#header-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+#header-actions .btn {
+  appearance: none;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 14px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#header-actions .btn:hover { background: rgba(217, 164, 65, 0.18); }
+#header-actions .btn:active { transform: translateY(1px); }
+#header-actions .btn:focus-visible { outline: 2px solid var(--accent-cm); outline-offset: 2px; }
+
+.layers-wrap { position: relative; }
+
+#layers-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 210px;
+  padding: 8px;
+  display: none;
+  z-index: 40;
+}
+
+#layers-menu.is-open { display: block; }
+
+#layers-menu label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  font-size: 13.5px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+#layers-menu label:hover { background: rgba(217, 164, 65, 0.14); }
+
+#layers-menu input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent-cm);
+  cursor: pointer;
+}
+
+/* ---------- Панель «В это время» ---------- */
+#events-panel {
+  position: absolute;
+  top: 76px;
+  right: 12px;
+  bottom: 12px;
+  width: 300px;
+  z-index: 18;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#events-panel.is-hidden { display: none; }
+
+/* Панель «В это время» убрана с карты (просьба пользователя). */
+#events-panel, #events-fab { display: none !important; }
+
+#events-panel .panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(217, 164, 65, 0.25);
+}
+
+#events-panel .panel-head h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  color: var(--accent-soft);
+}
+
+.panel-year { font-size: 12px; color: var(--text-dim); }
+
+#panel-close {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+#events-list,
+#people-list {
+  overflow-y: auto;
+  padding: 8px;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(217,164,65,.5) transparent;
+}
+
+.tab-pane.is-hidden { display: none !important; }
+
+.ev-empty {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  padding: 8px 6px;
+}
+
+#events-panel .ev-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#events-panel .ev-item:hover {
+  background: rgba(217, 164, 65, 0.16);
+  border-color: rgba(217, 164, 65, 0.4);
+}
+
+.ev-dot {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  box-shadow: 0 0 0 2px rgba(255, 248, 238, 0.75);
+}
+
+.ev-body { display: flex; flex-direction: column; gap: 2px; }
+
+.ev-year {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--accent-cm);
+  text-transform: uppercase;
+}
+
+.ev-title { font-size: 13.5px; line-height: 1.35; }
+
+/* Мобильная кнопка */
+#events-fab {
+  display: none;
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 19;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  color: var(--accent-soft);
+  border-radius: 999px;
+  font-size: 14px;
+  padding: 10px 16px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+#events-fab.is-hidden { display: none !important; }
+
+/* ---------- Загрузчик / ошибка ---------- */
+#loader {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24, 34, 44, 0.55);
+  color: #fff;
+  font-size: 15px;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+
+#loader.is-hidden { opacity: 0; visibility: hidden; }
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: var(--accent-cm);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#error-banner {
+  position: absolute;
+  top: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  max-width: min(92vw, 560px);
+  background: rgba(146, 44, 32, 0.95);
+  color: #ffe9e2;
+  border: 1px solid rgba(255, 180, 160, 0.5);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  box-shadow: var(--shadow);
+}
+
+#error-banner.is-hidden { display: none; }
+
+#nojs {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #26201a;
+  color: #f4ecda;
+  font-size: 16px;
+  text-align: center;
+  padding: 20px;
+}
+
+/* ---------- Подсказка при первом открытии ---------- */
+#hint {
+  position: absolute;
+  top: 84px;
+  left: 12px;
+  max-width: 460px;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#hint.is-hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
+#hint-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+#hint-close:hover { color: var(--accent-soft); }
+
+/* ---------- Попапы MapLibre ---------- */
+.maplibregl-popup-container { z-index: 31; }
+
+.maplibregl-popup-content {
+  background: #fbf6ea;
+  color: #2a241c;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  box-shadow: 0 8px 26px rgba(20, 16, 10, 0.4);
+}
+
+.maplibregl-popup-tip { border-top-color: #fbf6ea; border-bottom-color: #fbf6ea; }
+.maplibregl-popup-close-button { color: #7a6d58; font-size: 20px; right: 4px; top: 2px; }
+.maplibregl-popup-close-button:hover { color: #2a241c; background: none; }
+
+.pop-state h4, .pop-event h4 {
+  margin: 0 0 4px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15.5px;
+}
+
+.pop-dates { color: #6b5b41; font-size: 13px; }
+.pop-level { color: #8a7a60; font-size: 12px; margin-top: 3px; }
+.pop-disputed { color: #a33; font-size: 12px; margin-top: 3px; font-style: italic; }
+
+.pop-kind {
+  display: inline-block;
+  color: #fff;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+}
+
+.pop-year { color: #8a6a2f; font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+.pop-event p { margin: 4px 0 0; color: #453b2c; }
+
+/* Кнопка «→ в ленту» внутри попапа (связка контуров со статьями) */
+.pop-feed-link {
+  display: block;
+  width: 100%;
+  margin-top: 9px;
+  padding: 6px 10px;
+  border: 1px solid #2e9e63;
+  background: #eaf7ef;
+  color: #1c7a4a;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pop-feed-link:hover { background: #d8f0e2; }
+
+/* ---------- Контролы карты ---------- */
+.map-zone .maplibregl-ctrl-bottom-left { bottom: 4px; left: 4px; }
+.map-zone .maplibregl-ctrl-bottom-right { bottom: 8px; right: 8px; left: auto; }
+
+@media (min-width: 781px) {
+  /* панель «В это время» убрана с карты — контролы вернулись вправо */
+  .map-zone .maplibregl-ctrl-bottom-right { right: 8px; }
+}
+
+.map-zone .maplibregl-ctrl-group {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+
+.map-zone .maplibregl-ctrl-group button { background: transparent; }
+.map-zone .maplibregl-ctrl-group button + button { border-top: 1px solid rgba(217, 164, 65, 0.25); }
+.map-zone .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(0.9) sepia(0.3); }
+
+.map-zone .maplibregl-ctrl-attrib {
+  background: rgba(38, 32, 25, 0.85) !important;
+  border-radius: 8px;
+}
+
+.map-zone .maplibregl-ctrl-attrib a { color: var(--accent-soft); }
+
+/* ============================================================
+   ЗОНА 2 · УПРАВЛЕНИЕ
+   ============================================================ */
+
+.controls-zone {
+  background: #ece8de;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Быстрые прыжки — статичный ряд над шкалой */
+#quick-jumps {
+  display: flex;
+  gap: 6px;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#quick-jumps::-webkit-scrollbar { display: none; }
+
+.qjump {
+  appearance: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  border-radius: 999px;
+  font-size: 12.5px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.qjump:hover {
+  background: rgba(217, 164, 65, 0.18);
+  border-color: rgba(217, 164, 65, 0.55);
+  color: var(--accent-soft);
+}
+
+/* Шкала времени */
+#timeline {
+  position: relative;
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  gap: 8px 16px;
+  height: auto;
+  min-height: calc(var(--timeline-h) - 14px);
+  padding: 10px 18px;
+}
+
+.tl-controls { display: flex; gap: 6px; }
+
+.tl-controls button {
+  appearance: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tl-controls button:hover { background: rgba(217, 164, 65, 0.25); }
+
+#btn-play {
+  width: 46px !important;
+  height: 46px !important;
+  font-size: 17px !important;
+  background: rgba(217, 164, 65, 0.2) !important;
+  border-color: var(--accent-cm) !important;
+  color: var(--accent-soft) !important;
+} /* ▶ убран по решению пользователя — стиль оставлен для совместимости */
+
+#year-display {
+  min-width: 170px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 27px;
+  font-weight: 700;
+  color: var(--accent-soft);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.tl-slider-wrap {
+  flex: 1;
+  position: relative;
+  padding-bottom: 22px;
+}
+
+#year-slider {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, rgba(244, 236, 218, 0.25), rgba(244, 236, 218, 0.45));
+  outline: none;
+  cursor: pointer;
+}
+
+#year-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-cm);
+  border: 3px solid #26201a;
+  box-shadow: 0 0 0 1px var(--accent-cm);
+  cursor: grab;
+}
+
+#year-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-cm);
+  border: 3px solid #26201a;
+  box-shadow: 0 0 0 1px var(--accent-cm);
+  cursor: grab;
+}
+
+#ticks { position: relative; height: 20px; margin-top: 6px; }
+
+.tick {
+  position: absolute;
+  transform: translateX(-50%);
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 10px;
+  padding: 2px 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 4px;
+}
+
+.tick:hover { color: var(--accent-soft); background: rgba(217, 164, 65, 0.18); }
+.tick-start { transform: none; }
+.tick-end { transform: translateX(-100%); }
+
+/* Шкала-полоса (перенесена изнизу таблицы): мастер даты между картой и таблицей */
+.tl-strip {
+  flex-basis: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tl-arrow {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-border, #d9d3c6);
+  background: rgba(217, 164, 65, 0.12);
+  color: var(--accent-soft, #8a6a2f);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tl-arrow:hover {
+  background: rgba(217, 164, 65, 0.28);
+  border-color: var(--accent-cm, #a8842f);
+}
+
+.controls-zone #minimap {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 64px;
+  cursor: crosshair;
+  border-radius: 5px;
+  border: 1px solid var(--line, #d9d3c6);
+  background: #f6f3ec;
+}
+
+.table-zone .bottombar { justify-content: flex-end; }
+.table-zone .status { width: auto; flex: 0 0 auto; white-space: nowrap; margin-left: auto; }
+
+/* Лента: центр день-в-день + силуэты соседей в рамке */
+.feed-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.feed-sils {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
+  width: 158px;
+  min-width: 0;
+}
+
+.feed-center {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feed-sil {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 8px 10px;
+  background: #f4f1ea;
+  border: 1px dashed #cfc8b8;
+  border-radius: 10px;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.feed-sil:hover {
+  opacity: 1;
+  border-color: var(--accent, #8a6a2f);
+  background: #fffdf7;
+}
+
+.feed-sil .fs-year {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent, #8a6a2f);
+}
+
+.feed-sil .fs-name {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-soft, #55503f);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.feed-empty-mid { padding: 10px 14px; font-size: 12.5px; }
+
+/* ============================================================
+   ЗОНА 3 · ТАБЛИЦА (встраиваем в поток страницы)
+   ============================================================ */
+
+.table-zone { background: var(--bg); }
+
+.table-zone .stage {
+  position: relative;
+  top: auto;
+  bottom: auto;
+  left: auto;
+  right: auto;
+  height: clamp(300px, 42vh, 460px);
+  border-bottom: 1px solid var(--line);
+}
+
+.table-zone .bottombar {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: auto;
+  height: var(--bottom-h);
+}
+
+/* Панель статьи — закреплена справа, видна при прокрутке */
+.home-main .panel {
+  position: fixed;
+  top: var(--topbar-h);
+  bottom: auto;
+  height: calc(100vh - var(--topbar-h));
+}
+
+/* ============================================================
+   ЗОНА 4 · ЛЕНТА ХРОНОЛОГИИ
+   ============================================================ */
+
+.feed-zone {
+  background: var(--bg);
+  padding: 14px 16px 30px;
+  border-top: 1px solid var(--line);
+}
+
+.feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.feed-title b { font-size: 16px; }
+
+.feed-nav { display: flex; align-items: center; gap: 8px; }
+
+#feed-prev, #feed-next {
+  appearance: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid #c8c2b2;
+  background: #fbfaf7;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#feed-prev:hover, #feed-next:hover {
+  background: #fff;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#feed-date {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 700;
+  min-width: 170px;
+  text-align: center;
+  color: var(--ink);
+}
+
+#feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 54vh;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+}
+
+.feed-empty {
+  color: #8a8575;
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: #fbfaf7;
+}
+
+.feed-sec {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 4px 0 -2px;
+}
+
+.feed-card {
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.feed-card:hover {
+  background: #fff;
+  border-color: #c8c2b2;
+  border-left-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.feed-card .fc-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.feed-card .fc-badge {
+  display: inline-block;
+  color: #fff;
+  background: var(--accent-2);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.feed-card .fc-year { color: var(--accent); font-weight: 700; }
+
+.feed-card h5 {
+  margin: 5px 0 3px;
+  font-size: 15px;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.feed-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+/* Сущности (контуры) текущей даты */
+.feed-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.feed-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c8c2b2;
+  background: #fbfaf7;
+  color: var(--ink);
+  border-radius: 999px;
+  font-size: 12.5px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.feed-chip:hover { background: #fff; border-color: #a9a292; }
+
+.feed-chip.onmap { border-color: #2e9e63; background: #eefaf3; }
+.feed-chip.onmap .onmap-mark { color: #2e9e63; font-size: 13px; }
+
+.feed-to-map {
+  appearance: none;
+  border: 1px solid #2e9e63;
+  background: #eaf7ef;
+  color: #1c7a4a;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.feed-to-map:hover { background: #d8f0e2; }
+
+/* ============================================================
+   МОБИЛЬНАЯ ВЕРСИЯ
+   ============================================================ */
+
+@media (max-width: 780px) {
+  .map-zone { height: 46vh; min-height: 280px; }
+
+  #site-header { padding: 8px 12px; }
+  #site-header h1 { font-size: 16px; }
+  #site-header .subtitle { display: none; }
+
+  #header-actions .btn { font-size: 13px; padding: 8px 11px; }
+
+  #hint {
+    top: 64px;
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    font-size: 12.5px;
+    padding: 8px 10px;
+  }
+
+  #events-panel {
+    top: auto;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    bottom: 8px;
+    max-height: 44vh;
+    transform: translateY(120%);
+    transition: transform 0.25s ease;
+  }
+
+  #events-panel.is-open { transform: translateY(0); }
+  #panel-close { display: block; }
+  #events-fab { display: block; }
+
+  .map-zone .maplibregl-ctrl-bottom-right { right: 8px; bottom: 64px; }
+
+  #timeline {
+    gap: 10px;
+    padding: 8px 12px;
+    height: auto;
+    min-height: calc(var(--timeline-h) - 24px);
+    flex-wrap: wrap;
+    align-content: center;
+  }
+
+  #year-display { min-width: 110px; font-size: 18px; order: 2; }
+  .tl-controls { order: 1; }
+  .tl-controls button { width: 32px; height: 32px; font-size: 13px; }
+  .tl-arrow { width: 36px; height: 36px; font-size: 15px; }
+  .tl-strip { order: 3; padding-bottom: 2px; }
+  .controls-zone #minimap { height: 52px; }
+  #ticks { display: none; }
+
+  /* на узком экране силуэты уходят: их роль выполняют ‹ ›,
+     центральные карточки должны быть полноширинными */
+  .feed-sils { display: none; }
+
+  .qjump { font-size: 12px; padding: 5px 10px; }
+
+  .zone-head { padding: 8px 12px; }
+  .zone-head .zone-sub { display: none; }
+
+  .table-zone .stage { height: 320px; }
+
+  .home-main .panel { width: 100%; }
+
+  .feed-zone { padding: 12px 10px 24px; }
+  #feed-date { font-size: 18px; min-width: 130px; }
+  #feed-list { max-height: none; }
+}

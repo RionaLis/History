@@ -52,6 +52,21 @@ async function init() {
   wirePanel();
   wireMinimap();
   syncView();
+  // Смена даты ЛЮБЫМ способом (стрелки ←/→, шаги ленты ‹/›, чипы-прыжки,
+  // карточки, консоль) → сразу перерисовать полосу: рамка окна и красная
+  // метка даты должны двигаться всегда, а не только когда меняется окно.
+  (function stripFollowsYear() {
+    const attach = () => {
+      if (!(window.chronomap && typeof window.chronomap.onYearChange === 'function')) {
+        setTimeout(attach, 250);   // карта ещё загружается — попробуем позже
+        return;
+      }
+      window.chronomap.onYearChange(() => {
+        try { drawMinimap(); } catch (e) { /* полоса ещё не готова */ }
+      });
+    };
+    attach();
+  })();
   window.addEventListener('resize', () => { drawMinimap(); });
   if (location.hash) openFromHash();
   window.addEventListener('hashchange', openFromHash);
@@ -114,7 +129,13 @@ function wireToolbar() {
     b.onclick = () => {
       const v = b.dataset.span;
       if (v === 'all') { chart.view.k = 1; chart.view.ux = 0; chart.draw(); syncView(); }
-      else chart.setVisibleSpan(+v);
+      else {
+        // рамка раскрывается ВОКРУГ выбранной даты карты (источник истины),
+        // а не вокруг центра прижатого к краю окна.
+        const [ca, cb] = chart.visibleYears();
+        const yC = (window.chronomap && window.chronomap.state) ? window.chronomap.state.year : (ca + cb) / 2;
+        chart.setVisibleSpan(+v, yC);
+      }
       syncView();
     };
   });
@@ -162,6 +183,8 @@ function syncView() {
     `переселений: ${DATA.meta.counts.migrations}`;
   if (chart._kToSlider) $('#zoomRange').value = chart._kToSlider(chart.view.k);
   drawMinimap();
+  // рамка сдвинулась → в ленте обновить силуэты событий по краям
+  if (window.FEED && window.FEED._refresh) window.FEED._refresh();
 }
 
 /* ------------------------------------------------ фильтры */
@@ -482,15 +505,49 @@ function openFromHash() {
 /* ------------------------------------------------ обзорная полоса */
 function wireMinimap() {
   const cv = $('#minimap');
-  let drag = false;
-  const toYear = e => {
+  if (!cv) return;
+  // Одно правило на всё:
+  //   при mousedown МИМО окна (или на всём полном полотне) дата = курсор;
+  //   при mousedown В окне — дата едет вместе с окном, сохраняя зазор
+  //   «курсор ↔ красная черта» (окно следует за курсором без телепорта).
+  // Оба случая ведут в одну функцию: setYear + рамка под датой + перерисовка,
+  // так красная черта на полосе сразу на своём месте.
+  let grab = null; // { off, span }
+  const uOf = e => {
     const r = cv.getBoundingClientRect();
-    const u = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-    return chart.scale.year(u);
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
   };
-  cv.addEventListener('mousedown', e => { drag = true; chart.centerOn(toYear(e)); syncView(); });
-  window.addEventListener('mousemove', e => { if (drag) { chart.centerOn(toYear(e)); syncView(); } });
-  window.addEventListener('mouseup', () => drag = false);
+  const spanNow = () => {
+    const s = chart.visibleYears()[1] - chart.visibleYears()[0];
+    if (!(s >= 5)) return 500;
+    return s > 35000 ? 14000 : s;
+  };
+  const apply = u => {
+    const y = Math.round(chart.scale.year(Math.max(0, Math.min(1, u))));
+    if (window.chronomap && window.chronomap.state) window.chronomap.setYear(y);
+    chart.setVisibleSpan(grab.span, y);
+    syncView();
+  };
+  cv.addEventListener('mousedown', e => {
+    const u = uOf(e);
+    const SS = chart.scale;
+    const [va, vb] = chart.visibleYears();
+    const sa = SS.unit(va), sb = SS.unit(vb);
+    const inBox = u >= sa && u <= sb && (sb - sa) < 0.9;
+    if (inBox) {
+      const anchor = (window.chronomap && window.chronomap.state)
+        ? window.chronomap.state.year : (va + vb) / 2;
+      grab = { off: u - SS.unit(anchor), span: spanNow() };
+    } else {
+      grab = { off: 0, span: spanNow() };
+      apply(u);
+    }
+  });
+  window.addEventListener('mousemove', e => {
+    if (!grab) return;
+    apply(uOf(e) - grab.off);
+  });
+  window.addEventListener('mouseup', () => { grab = null; });
   drawMinimap();
 }
 
@@ -526,7 +583,7 @@ function drawMinimap() {
   ctx.closePath();
   ctx.fillStyle = 'rgba(70,90,120,0.28)'; ctx.fill();
   ctx.strokeStyle = 'rgba(70,90,120,0.6)'; ctx.lineWidth = 1; ctx.stroke();
-  // Метки всей шкалы: плотность учитывает нелинейные участки и линейный режим.
+  // Метки всей шкалы.
   ctx.font = '9px "Segoe UI", sans-serif'; ctx.fillStyle = '#7a7568'; ctx.textAlign = 'center';
   const yMin = DATA.meta?.yearMin ?? chart.scale.yearMin;
   const yMax = DATA.meta?.yearMax ?? chart.scale.yearMax;
@@ -549,4 +606,16 @@ function drawMinimap() {
   ctx.fillRect(x0, 0, Math.max(2, x1 - x0), H);
   ctx.strokeStyle = '#0b63d6'; ctx.lineWidth = 1.5;
   ctx.strokeRect(x0 + .5, .5, Math.max(2, x1 - x0) - 1, H - 1);
+  // Красная черта выбранной даты (только на главной, где есть карта с датой):
+  // ровно на годе — при зажатии рамки к краю шкалы середина окошка ≠ дате,
+  // при обычном зуме (рамка симметрична) она и есть середина окошка.
+  if (window.chronomap) {
+    const xc = Math.max(0, Math.min(W, ux(window.chronomap.state.year)));
+    ctx.strokeStyle = '#d13b3b'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(xc, 0); ctx.lineTo(xc, H); ctx.stroke();
+    ctx.fillStyle = '#d13b3b';
+    ctx.beginPath();
+    ctx.moveTo(xc - 5, 0); ctx.lineTo(xc + 5, 0); ctx.lineTo(xc, 7);
+    ctx.closePath(); ctx.fill();
+  }
 }
