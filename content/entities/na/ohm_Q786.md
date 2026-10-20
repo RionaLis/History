@@ -4,18 +4,22 @@ name: "Доминиканская Республика"
 kind: "entity"
 type: "state"
 start: 1966
-end: 2007
+end: 1967
 region: "na"
 regions: ["na"]
-color: "#888888"
 label: "República Dominicana"
 aliases: ["República Dominicana"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2841709, Wikidata Q786)."
-spans: []
 ohm_id: 2841709
 wikidata: "Q786"
 name_ohm: "República Dominicana"
+color: "#c2d491"
+area_source: "OHM relation 2841709; spherical area, outer rings minus inner rings"
+area_series: [{"year":1966,"area_km2":56377.389},{"year":1967,"area_km2":56377.389}]
+spans:
+  - lane: "na_mis"
+    points: [[1966,0.03594],[1967,0.03594]]
 ---
 
 # Доминиканская Республика
@@ -25,7 +29,7 @@ name_ohm: "República Dominicana"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1966 — 2007 н.э. |
+| **Период** | 1966 н.э. — 1967 н.э. |
 | **Регион** | na |
 | **Wikidata** | Q786 |
 | **OHM id** | 2841709 |

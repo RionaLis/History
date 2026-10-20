@@ -4,18 +4,22 @@ name: "Словакия"
 kind: "entity"
 type: "state"
 start: 1993
-end: None
+end: 2000
 region: "eu"
 regions: ["eu"]
-color: "#888888"
 label: "Slovensko"
 aliases: ["Slovensko"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692235, Wikidata Q214)."
-spans: []
 ohm_id: 2692235
 wikidata: "Q214"
 name_ohm: "Slovensko"
+color: "#9199d4"
+area_source: "OHM relation 2692235; spherical area, outer rings minus inner rings"
+area_series: [{"year":1993,"area_km2":48875.248},{"year":2000,"area_km2":48875.248}]
+spans:
+  - lane: "eu_est"
+    points: [[1993,0.09257],[2000,0.09257]]
 ---
 
 # Словакия
@@ -25,7 +29,7 @@ name_ohm: "Slovensko"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1993 н.э. |
+| **Период** | 1993 н.э. — 2000 н.э. |
 | **Регион** | eu |
 | **Wikidata** | Q214 |
 | **OHM id** | 2692235 |

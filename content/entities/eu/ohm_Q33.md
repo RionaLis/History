@@ -3,19 +3,23 @@ id: "ohm_Q33"
 name: "Финляндия"
 kind: "entity"
 type: "state"
-start: 1917
-end: 1995
+start: 1940
+end: 1944
 region: "eu"
 regions: ["eu"]
-color: "#888888"
 label: "Suomi"
 aliases: ["Suomi"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692833, Wikidata Q33)."
-spans: []
 ohm_id: 2692833
 wikidata: "Q33"
 name_ohm: "Suomi"
+color: "#89d18c"
+area_source: "OHM relation 2692833; spherical area, outer rings minus inner rings"
+area_series: [{"year":1940,"area_km2":376885.888},{"year":1944,"area_km2":376885.888}]
+spans:
+  - lane: "eu_nor"
+    points: [[1940,0.25706],[1944,0.25706]]
 ---
 
 # Финляндия
@@ -25,7 +29,7 @@ name_ohm: "Suomi"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1917 — 1995 н.э. |
+| **Период** | 1940 н.э. — 1944 н.э. |
 | **Регион** | eu |
 | **Wikidata** | Q33 |
 | **OHM id** | 2692833 |

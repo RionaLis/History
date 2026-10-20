@@ -77,6 +77,13 @@ function boot() {
     findEntity: name => findEntity(name),
     findEvent: title => findEvent(title),
     openItem: (kind, id) => openItem(kind, id),
+    highlightEntity: id => flyToEntity(id, true),
+    selectEntity: id => {
+      if (!DATA.entities.some(e => e.id === id)) return;
+      chart.selectedId = id;
+      chart.draw();
+      flyToEntity(id, true);
+    },
   };
   window.FEED = {
     go,

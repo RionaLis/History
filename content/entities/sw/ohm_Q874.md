@@ -7,15 +7,19 @@ start: 1991
 end: 2018
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "Türkmenistan"
 aliases: ["Türkmenistan"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2697940, Wikidata Q874)."
-spans: []
 ohm_id: 2697940
 wikidata: "Q874"
 name_ohm: "Türkmenistan"
+color: "#aa98d7"
+area_source: "OHM relation 2697940; spherical area, outer rings minus inner rings"
+area_series: [{"year":1991,"area_km2":494191.324},{"year":2018,"area_km2":494191.324}]
+spans:
+  - lane: "sw_irn"
+    points: [[1991,0.09823],[2018,0.09823]]
 ---
 
 # Туркменистан
@@ -25,7 +29,7 @@ name_ohm: "Türkmenistan"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1991 — 2018 н.э. |
+| **Период** | 1991 н.э. — 2018 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q874 |
 | **OHM id** | 2697940 |

@@ -7,15 +7,19 @@ start: 1816
 end: 1860
 region: "in"
 regions: ["in"]
-color: "#888888"
 label: "नेपाल अधिराज्य"
 aliases: ["नेपाल अधिराज्य"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2800955, Wikidata Q837)."
-spans: []
 ohm_id: 2800955
 wikidata: "Q837"
 name_ohm: "नेपाल अधिराज्य"
+color: "#add89c"
+area_source: "OHM relation 2800955; spherical area, outer rings minus inner rings"
+area_series: [{"year":1816,"area_km2":147770.113},{"year":1860,"area_km2":147770.113}]
+spans:
+  - lane: "in_gan"
+    points: [[1816,0.10808],[1860,0.10808]]
 ---
 
 # Королевство Непал
@@ -25,7 +29,7 @@ name_ohm: "नेपाल अधिराज्य"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1816 — 1860 н.э. |
+| **Период** | 1816 н.э. — 1860 н.э. |
 | **Регион** | in |
 | **Wikidata** | Q837 |
 | **OHM id** | 2800955 |

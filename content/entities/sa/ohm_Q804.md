@@ -3,19 +3,23 @@ id: "ohm_Q804"
 name: "Панама"
 kind: "entity"
 type: "state"
-start: 1903
-end: 1996
+start: 1904
+end: 1913
 region: "sa"
 regions: ["sa"]
-color: "#888888"
 label: "Panamá"
 aliases: ["Panamá"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2808535, Wikidata Q804)."
-spans: []
 ohm_id: 2808535
 wikidata: "Q804"
 name_ohm: "Panamá"
+color: "#a3c6db"
+area_source: "OHM relation 2808535; spherical area, outer rings minus inner rings"
+area_series: [{"year":1904,"area_km2":92618.618},{"year":1913,"area_km2":92618.618}]
+spans:
+  - lane: "sa_car"
+    points: [[1904,0.07300],[1913,0.07300]]
 ---
 
 # Панама
@@ -25,7 +29,7 @@ name_ohm: "Panamá"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1903 — 1996 н.э. |
+| **Период** | 1904 н.э. — 1913 н.э. |
 | **Регион** | sa |
 | **Wikidata** | Q804 |
 | **OHM id** | 2808535 |

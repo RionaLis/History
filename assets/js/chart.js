@@ -36,20 +36,25 @@ export class Chart {
     this.ctx = canvas.getContext('2d');
     this.data = data;
     this.scale = new TimeScale(data.scaleAnchors, 'poster');
-    this.maxZoom = 100000;
-    const defaultRange = data.meta?.defaultRange || [-12000, 2000];
+    this.minVisibleYears = 50;
+    this.maxZoom = 1;
+    const defaultRange = data.meta?.defaultRange || [-4000, 2000];
     const defaultU0 = this.scale.unit(defaultRange[0]);
     const defaultU1 = this.scale.unit(defaultRange[1]);
     this.view = { k: 1 / (defaultU1 - defaultU0), ux: defaultU0, vy: 0 };
+    this.maxZoom = this.zoomLimitAt(this.scale.year(this.view.ux + 0.5 / this.view.k));
     // eraH = 0: лента эпох рисуется первой дорожкой региона «Весь мир» (wd_era)
-    this.geom = { gutterW: 196, axisH: 32, eraH: 0, pad: 0 };
+    this.geom = { gutterW: 220, axisH: 36, eraH: 0, pad: 0 };
     this.eraLaneId = 'wd_era';
-    this.rowUnit = 16;
-    this.fitRows = true;
+    this.baseRowUnit = 20;
+    this.verticalScale = 1;
+    this.rowUnit = this.baseRowUnit;
+    this.stateGamma = 0.4;
+    this.fitRows = false;
     this.filters = {
       regions: new Set(data.regions.map(r => r.id)),
       types: new Set(data.entities.map(e => e.type)),
-      showEvents: false, showMigrations: true, showLabels: true,   // события пока скрыты
+      showEvents: false, showMigrations: false, showLabels: true,
       iconTypes: new Set(data.icons.map(i => i.id)),
       query: '',
     };
@@ -59,6 +64,7 @@ export class Chart {
     this.onHover = opts.onHover || (() => {});
     this.onSelect = opts.onSelect || (() => {});
     this.onView = opts.onView || (() => {});
+    this.onDateChange = opts.onDateChange || (() => {});
     // На главной страница прокручивается целиком: высота canvas следует
     // за полной раскладкой дорожек, а не за окном просмотра.
     this.autoHeight = !!opts.autoHeight;
@@ -75,28 +81,64 @@ export class Chart {
     this.lanesLayout = computeLanes(regions, { rowUnit: this.rowUnit, regionGap: 7 });
     const laneIds = this.lanesLayout.lanes.map(l => l.id);
     const ents = this.data.entities.filter(e => this.filters.types.has(e.type));
-    this.strips = layoutEntities(ents, laneIds);
+    this.strips = layoutEntities(ents, laneIds, this.stateGamma);
     this.entityById = new Map(this.data.entities.map(e => [e.id, e]));
     this.syncStageHeight();
   }
 
-  /** На главной выделяем место под все дорожки; таблица не обрезается по высоте. */
+  /** На главной: обзор показывает все дорожки; при вертикальном зуме — окно прокрутки. */
   syncStageHeight() {
     if (!this.autoHeight) return;
     const stage = this.canvas.closest('.stage');
     if (!stage) return;
-    const height = Math.ceil(this.plotY() + this.lanesLayout.height + 1);
+    const height = this.verticalScale > 1.001
+      ? Math.max(360, Math.round(window.innerHeight * 0.72))
+      : Math.ceil(this.plotY() + this.lanesLayout.height + 1);
     stage.style.height = `${Math.max(300, height)}px`;
   }
 
-  setRowUnit(v) { this.rowUnit = v; this.fitRows = false; this.rebuild(); this.clampView(); this.draw(); }
+  zoomLimitAt(year) {
+    const half = this.minVisibleYears / 2;
+    const y0 = Math.max(this.scale.yearMin, Math.min(this.scale.yearMax - this.minVisibleYears, year - half));
+    const delta = this.scale.unit(y0 + this.minVisibleYears) - this.scale.unit(y0);
+    return delta > 0 ? 1 / delta : 1000;
+  }
+
+  verticalMaxScale() {
+    const plotHeight = this.autoHeight
+      ? Math.max(360, Math.round(window.innerHeight * 0.72)) - this.plotY()
+      : this.plotH();
+    const maxWeight = Math.max(1, ...this.data.regions.flatMap(r => r.lanes.map(l => l.weight || 1)));
+    return Math.max(1, plotHeight / (this.baseRowUnit * maxWeight));
+  }
+
+  setVerticalScale(value) {
+    const oldCenter = this.view.vy + this.plotH() / 2;
+    const lane = this.lanesLayout.lanes.find(l => oldCenter >= l.y && oldCenter <= l.y + l.h);
+    const frac = lane ? (oldCenter - lane.y) / lane.h : 0.5;
+    this.verticalScale = Math.max(1, Math.min(this.verticalMaxScale(), Number(value) || 1));
+    this.rowUnit = this.baseRowUnit * this.verticalScale;
+    this.fitRows = false;
+    this.rebuild();
+    if (lane) {
+      const next = this.lanesLayout.lanes.find(l => l.id === lane.id);
+      if (next) this.view.vy = next.y + frac * next.h - this.plotH() / 2;
+    }
+    this.clampView(); this.draw();
+  }
+
+  setRowUnit(v) { this.rowUnit = v; this.verticalScale = v / this.baseRowUnit; this.fitRows = false; this.rebuild(); this.clampView(); this.draw(); }
+  setStateGamma(v) {
+    this.stateGamma = Math.max(0.4, Math.min(1, Number(v) || 0.4));
+    this.rebuild(); this.clampView(); this.draw();
+  }
 
   fitRowsToView() {
     const regions = this.data.regions.filter(r => this.filters.regions.has(r.id));
     const wsum = regions.reduce((s, r) => s + r.lanes.reduce((a, l) => a + (l.weight || 1), 0), 0);
     const gaps = Math.max(0, regions.length - 1) * 7;
     const h = this.plotH() - gaps;
-    this.rowUnit = Math.max(12, Math.min(44, h / Math.max(1, wsum)));
+    this.rowUnit = Math.max(16, Math.min(44, h / Math.max(1, wsum)));
     this.fitRows = true;
     this.rebuild();
     this.view.vy = 0;
@@ -119,14 +161,32 @@ export class Chart {
 
   clampView() {
     const v = this.view;
-    v.k = Math.max(1, Math.min(this.maxZoom, v.k));
+    v.k = Math.max(1, v.k);
     v.ux = Math.max(0, Math.min(1 - 1 / v.k, v.ux));
+    // Ограничение зависит от участка постерной шкалы: одинаковый zoom-factor
+    // соответствует разному числу календарных лет в разных эпохах.
+    for (let i = 0; i < 2; i++) {
+      const centerYear = this.scale.year(v.ux + 0.5 / v.k);
+      this.maxZoom = this.zoomLimitAt(centerYear);
+      if (v.k <= this.maxZoom) break;
+      v.k = this.maxZoom;
+      v.ux = Math.max(0, Math.min(1 - 1 / v.k, v.ux));
+    }
     const maxVy = Math.max(0, this.lanesLayout.height - this.plotH());
     v.vy = Math.max(0, Math.min(maxVy, v.vy));
   }
 
   visibleYears() {
     return [this.yearOf(this.plotX()), this.yearOf(this.plotX() + this.plotW())];
+  }
+
+  _dateMarkerX() {
+    const year = window.chronomap?.state?.year;
+    return Number.isFinite(year) ? this.xOf(year) : null;
+  }
+  _isDateMarkerAt(x, y) {
+    const markerX = this._dateMarkerX();
+    return markerX !== null && y >= this.plotY() && y <= this.plotY() + this.plotH() && Math.abs(x - markerX) <= 8;
   }
 
   /** Сменить проекцию, не меняя видимые крайние даты. */
@@ -216,6 +276,7 @@ export class Chart {
     this._drawBands(ctx);
     this._drawGrid(ctx);
     this._drawEraLane(ctx);
+    if (this.data.stateFlows?.length) this._drawStateFlows(ctx);
     this._drawRibbons(ctx);
     if (this.filters.showMigrations) this._drawMigrations(ctx);
     if (this.filters.showEvents) this._drawEvents(ctx);
@@ -293,6 +354,82 @@ export class Chart {
     if (x0 > px && x0 < px + pw) {
       ctx.strokeStyle = 'rgba(160,40,40,0.55)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(x0, py); ctx.lineTo(x0, py + ph); ctx.stroke();
+    }
+  }
+
+  /** Автоматические/ручные Sankey-переходы между политическими лентами.
+   *  Тонкие полупрозрачные ленты связывают конец предшественника с началом преемника.
+   *  Автоматические связи Wikidata предварительны и пока делятся поровну. */
+  _flowBand(entityId, laneId, year, sourceSide = false) {
+    const lane = this.lanesLayout.byId.get(laneId);
+    if (!lane) return null;
+    const strip = (this.strips.get(laneId) || []).find(s => s.entity.id === entityId);
+    if (!strip) return null;
+    let best = null, bestGap = Infinity;
+    for (const run of strip.runs) {
+      const first = run[0][0], last = run[run.length - 1][0];
+      const gap = year < first ? first - year : year > last ? year - last : 0;
+      if (gap > bestGap) continue;
+      if (gap > 0 && gap > 2) continue;
+      bestGap = gap;
+      let point = null;
+      for (let i = 1; i < run.length; i++) {
+        if (year <= run[i][0]) {
+          const a = run[i - 1], b = run[i];
+          const f = b[0] === a[0] ? 0 : Math.max(0, Math.min(1, (year - a[0]) / (b[0] - a[0])));
+          point = [a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+          break;
+        }
+      }
+      if (!point) point = year < first ? [run[0][1], run[0][2]] : [run.at(-1)[1], run.at(-1)[2]];
+      best = point;
+    }
+    return best ? { lane, top: this.yOf(lane, best[0]), bottom: this.yOf(lane, best[1]) } : null;
+  }
+
+  _drawStateFlows(ctx) {
+    const edges = this.data.stateFlows || [];
+    const outgoing = new Map(), incoming = new Map();
+    for (const e of edges) {
+      if (!outgoing.has(e.source)) outgoing.set(e.source, []);
+      if (!incoming.has(e.target)) incoming.set(e.target, []);
+      outgoing.get(e.source).push(e); incoming.get(e.target).push(e);
+    }
+    for (const a of outgoing.values()) a.sort((x, y) => x.target.localeCompare(y.target));
+    for (const a of incoming.values()) a.sort((x, y) => x.source.localeCompare(y.source));
+    const px = this.plotX(), pw = this.plotW(), py = this.plotY(), ph = this.plotH();
+    for (const e of edges) {
+      const y0 = Number(e.fromYear ?? e.year), y1 = Number(e.toYear ?? e.year);
+      if (!Number.isFinite(y0) || !Number.isFinite(y1)) continue;
+      let x0 = this.xOf(y0), x1 = this.xOf(y1);
+      if (Math.max(x0, x1) < px - 40 || Math.min(x0, x1) > px + pw + 40) continue;
+      // A same-year succession would otherwise collapse to a zero-width polygon.
+      if (Math.abs(x1 - x0) < 5) { const mid = (x0 + x1) / 2; x0 = mid - 2.5; x1 = mid + 2.5; }
+      const a = this._flowBand(e.source, e.sourceLane, y0, true);
+      const b = this._flowBand(e.target, e.targetLane, y1, false);
+      if (!a || !b || Math.max(a.bottom, b.bottom) < py - 20 || Math.min(a.top, b.top) > py + ph + 20) continue;
+      const outs = outgoing.get(e.source) || [e], ins = incoming.get(e.target) || [e];
+      const oi = outs.indexOf(e), ii = ins.indexOf(e);
+      const sourceWeights = outs.map(x => Math.max(0, Number(x.sourceShare) || 1));
+      const targetWeights = ins.map(x => Math.max(0, Number(x.targetShare) || 1));
+      const sw = sourceWeights.reduce((s, v) => s + v, 0) || 1;
+      const tw = targetWeights.reduce((s, v) => s + v, 0) || 1;
+      const sa0 = a.top + (a.bottom - a.top) * sourceWeights.slice(0, oi).reduce((s, v) => s + v, 0) / sw;
+      const sa1 = sa0 + (a.bottom - a.top) * sourceWeights[oi] / sw;
+      const tb0 = b.top + (b.bottom - b.top) * targetWeights.slice(0, ii).reduce((s, v) => s + v, 0) / tw;
+      const tb1 = tb0 + (b.bottom - b.top) * targetWeights[ii] / tw;
+      const rgb = hexToRgb(this.entityById.get(e.source)?.color || '#66758a');
+      const dx = Math.max(1, x1 - x0), off = dx * 0.45;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x0, sa0);
+      ctx.bezierCurveTo(x0 + off, sa0, x1 - off, tb0, x1, tb0);
+      ctx.lineTo(x1, tb1);
+      ctx.bezierCurveTo(x1 - off, tb1, x0 + off, sa1, x0, sa1);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${e.kind === 'manual' ? 0.44 : 0.28})`;
+      ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -383,7 +520,10 @@ export class Chart {
         const score = Math.min(xb - xa, 400) * Math.min(hpx, 30);
         if (!best || score > best.score) best = { cx, y: this.yOf(lane, (t0 + t1) / 2), hpx, w: xb - xa, score };
       }
-      if (!best || best.hpx < 7.5) continue;
+      const scaleOnly = (e.tags || []).includes('unmapped-area');
+      // Подпись может быть выше самой тонкой ленты: при нелинейной шкале
+      // оставляем место для подписей малых государств, не скрывая всю карточку.
+      if (!best || best.hpx < (scaleOnly ? 0.15 : 1.5)) continue;
       cands.push({ e, ...best });
     }
     // главная подпись — в том регионе, где лента крупнее; в остальных мельче
@@ -399,7 +539,7 @@ export class Chart {
     for (const c of cands) {
       const primary = bestOf.get(c.e.id) === c;
       const cap = primary ? 15 : 10.5;
-      const fs = Math.max(8, Math.min(cap, c.hpx * 0.72));
+      const fs = Math.max(6.5, Math.min(cap, c.hpx * 0.72));
       const soft = SOFT_TYPES.has(c.e.type);   // народ или культура — просто текст
       const setFont = (ls) => {
         ctx.font = soft
@@ -703,7 +843,7 @@ export class Chart {
       ctx.beginPath(); ctx.moveTo(26, Math.round(y + l.h) + 0.5);
       ctx.lineTo(gw, Math.round(y + l.h) + 0.5); ctx.stroke();
       ctx.fillStyle = '#2a2f3a';
-      const fs = Math.max(8, Math.min(11.5, l.h * 0.62));
+      const fs = Math.max(9.5, Math.min(12.5, l.h * 0.65));
       ctx.font = `${fs.toFixed(1)}px "Segoe UI", system-ui, sans-serif`;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       let name = l.name;
@@ -922,8 +1062,10 @@ export class Chart {
 
     c.addEventListener('mousedown', ev => {
       const r = c.getBoundingClientRect();
-      drag = { x: ev.clientX, y: ev.clientY, ux: this.view.ux, vy: this.view.vy, moved: 0,
-               px: ev.clientX - r.left, py: ev.clientY - r.top };
+      const px = ev.clientX - r.left, py = ev.clientY - r.top;
+      drag = this._isDateMarkerAt(px, py)
+        ? { mode: 'date', x: ev.clientX, y: ev.clientY, moved: 0 }
+        : { mode: 'pan', x: ev.clientX, y: ev.clientY, ux: this.view.ux, vy: this.view.vy, moved: 0 };
       c.classList.add('dragging');
     });
 
@@ -933,16 +1075,23 @@ export class Chart {
       if (drag) {
         const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
         drag.moved = Math.max(drag.moved, Math.abs(dx) + Math.abs(dy));
-        this.view.ux = drag.ux - dx / this.contentW();
-        this.view.vy = drag.vy - dy;
-        this.clampView();
-        this.draw();
-        this.onView(this, 'pan');
+        if (drag.mode === 'date') {
+          const px = Math.max(this.plotX(), Math.min(this.plotX() + this.plotW(), mx));
+          this.onDateChange(Math.round(this.yearOf(px)));
+          this.draw();
+        } else {
+          this.view.ux = drag.ux - dx / this.contentW();
+          this.view.vy = drag.vy - dy;
+          this.clampView();
+          this.draw();
+          this.onView(this, 'pan');
+        }
         return;
       }
       if (mx < 0 || my < 0 || mx > r.width || my > r.height) { this._setHover(null, ev); return; }
       const hit = this.hitTest(mx, my);
       this._setHover(hit, ev);
+      if (this._isDateMarkerAt(mx, my)) c.style.cursor = 'ew-resize';
     });
 
     window.addEventListener('mouseup', () => {
@@ -1011,8 +1160,11 @@ export class Chart {
     c.addEventListener('touchstart', ev => {
       const r = c.getBoundingClientRect();
       if (ev.touches.length === 1) {
-        touch = { mode: 'pan', x: ev.touches[0].clientX, y: ev.touches[0].clientY,
-                  ux: this.view.ux, vy: this.view.vy };
+        const px = ev.touches[0].clientX - r.left, py = ev.touches[0].clientY - r.top;
+        touch = this._isDateMarkerAt(px, py)
+          ? { mode: 'date', x: ev.touches[0].clientX, y: ev.touches[0].clientY }
+          : { mode: 'pan', x: ev.touches[0].clientX, y: ev.touches[0].clientY,
+              ux: this.view.ux, vy: this.view.vy };
       } else if (ev.touches.length === 2) {
         const d = Math.hypot(ev.touches[0].clientX - ev.touches[1].clientX,
                              ev.touches[0].clientY - ev.touches[1].clientY);
@@ -1033,7 +1185,12 @@ export class Chart {
         return;
       }
       ev.preventDefault();
-      if (touch.mode === 'pan' && ev.touches.length === 1) {
+      if (touch.mode === 'date' && ev.touches.length === 1) {
+        const r = c.getBoundingClientRect();
+        const px = Math.max(this.plotX(), Math.min(this.plotX() + this.plotW(), ev.touches[0].clientX - r.left));
+        this.onDateChange(Math.round(this.yearOf(px)));
+        this.draw();
+      } else if (touch.mode === 'pan' && ev.touches.length === 1) {
         const dx = ev.touches[0].clientX - touch.x, dy = ev.touches[0].clientY - touch.y;
         this.view.ux = touch.ux - dx / this.contentW();
         this.view.vy = touch.vy - dy;
@@ -1048,7 +1205,15 @@ export class Chart {
     c.addEventListener('touchend', () => { touch = null; }, { passive: true });
 
     window.addEventListener('resize', () => {
-      if (this.fitRows) this.fitRowsToView(); else this.draw();
+      this.syncStageHeight();
+      const maxVertical = this.verticalMaxScale();
+      if (this.verticalScale > maxVertical) {
+        this.verticalScale = maxVertical;
+        this.rowUnit = this.baseRowUnit * this.verticalScale;
+        this.rebuild();
+      }
+      this.clampView();
+      this.draw();
     });
   }
 

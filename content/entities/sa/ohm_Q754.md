@@ -3,19 +3,23 @@ id: "ohm_Q754"
 name: "Тринидад и Тобаго"
 kind: "entity"
 type: "state"
-start: 1962
-end: 1976
+start: 1976
+end: 2000
 region: "sa"
 regions: ["sa"]
-color: "#888888"
 label: "Trinidad and Tobago"
 aliases: ["Trinidad and Tobago"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2834826, Wikidata Q754)."
-spans: []
 ohm_id: 2834826
 wikidata: "Q754"
 name_ohm: "Trinidad and Tobago"
+color: "#dbbca3"
+area_source: "OHM relation 2834826; spherical area, outer rings minus inner rings"
+area_series: [{"year":1976,"area_km2":21770.251},{"year":2000,"area_km2":21770.251}]
+spans:
+  - lane: "sa_car"
+    points: [[1976,0.03539],[2000,0.03539]]
 ---
 
 # Тринидад и Тобаго
@@ -25,7 +29,7 @@ name_ohm: "Trinidad and Tobago"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1962 — 1976 н.э. |
+| **Период** | 1976 н.э. — 2000 н.э. |
 | **Регион** | sa |
 | **Wikidata** | Q754 |
 | **OHM id** | 2834826 |

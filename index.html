@@ -23,6 +23,7 @@
   <nav class="nav">
     <a class="active" href="index.html">Карта</a>
     <a href="table.html">Таблица</a>
+    <a href="tools/area-tool.html">Площади и цвета</a>
     <a href="pages/regions.html">Регионы</a>
     <a href="pages/events.html">События</a>
     <a href="pages/entity.html">Статьи</a>
@@ -138,17 +139,17 @@
   <section class="zone table-zone" aria-label="Синхронологическая таблица">
     <div class="zone-head">
       <b>Синхронологическая таблица</b>
-      <span class="zone-sub">регионы × время · щёлкните объект — откроется статья</span>
+      <span class="zone-sub">государства: полупрозрачные потоки преемственности · щёлкните объект — откроется статья</span>
       <a class="zone-more" href="table.html">открыть на весь экран →</a>
     </div>
 
     <div class="toolbar">
       <div class="group">
-        <span class="lbl">Масштаб</span>
+        <span class="lbl">Горизонтальный масштаб</span>
         <button class="btn" id="zoomOut" title="Отдалить (Ctrl + колесо вниз)">−</button>
         <input type="range" id="zoomRange" min="0" max="1000" value="0" title="Масштабировать вокруг выбранной даты на карте">
         <button class="btn" id="zoomIn" title="Приблизить (Ctrl + колесо вверх)">+</button>
-        <span class="readout" id="spanOut">14000 лет на экране</span>
+        <span class="readout" id="spanOut">6000 лет на экране</span>
       </div>
       <div class="group">
         <button class="btn chip" data-span="all">Вся история</button>
@@ -158,9 +159,14 @@
         <button class="btn chip" data-span="200">200 лет</button>
       </div>
       <div class="group">
-        <span class="lbl">Строки</span>
-        <input type="range" id="rowRange" min="9" max="44" step="1" value="16" title="Высота строк">
-        <button class="btn" id="fitRows" title="Показать все регионы по высоте таблицы">⤢ Вписать</button>
+        <span class="lbl">Толщина государств</span>
+        <input type="range" id="thicknessRange" min="40" max="100" step="5" value="40" title="Нелинейность масштаба полос: левее — малые государства заметнее">
+        <span class="readout" id="thicknessOut">малые заметнее</span>
+      </div>
+      <div class="group">
+        <span class="lbl">Вертикальный масштаб</span>
+        <input type="range" id="verticalRange" min="0" max="1000" step="1" value="0" title="Увеличить высоту всех дорожек; максимум — одна дорожка на экране">
+        <span class="readout" id="verticalOut">×1</span>
       </div>
       <div class="group">
         <button class="btn toggle" id="btnFilters">Фильтры</button>
@@ -168,7 +174,7 @@
         <label class="switch"><input type="checkbox" id="chkLinear"> равномерная шкала</label>
       </div>
       <div class="group right">
-        <span class="hint">колесо — масштаб времени · тянуть — сдвиг · 2 клика — вписать объект</span>
+        <span class="hint">колесо — масштаб времени · тянуть полотно — сдвиг · тянуть красную метку — дата · 2 клика — вписать объект</span>
       </div>
     </div>
 
@@ -190,17 +196,9 @@
             <div id="fEras" class="chips"></div>
           </div>
           <div class="col">
-            <h4>Значки событий <a href="#" data-all="icons">все</a> / <a href="#" data-none="icons">ни одного</a></h4>
-            <div id="fIcons" class="checks"></div>
-          </div>
-          <div class="col">
             <h4>Слои</h4>
-            <label class="switch"><input type="checkbox" id="chkEvents"> события</label>
-            <label class="switch"><input type="checkbox" id="chkMig" checked> линии переселений</label>
             <label class="switch"><input type="checkbox" id="chkLabels" checked> подписи на лентах</label>
-            <p class="pop-hint">Значки событий сейчас отключены — таблица показывает народы,
-               культуры, государства и переселения. Включите слой «события», чтобы
-               вернуть их на схему.</p>
+            <p class="pop-hint">На таблице отображаются только объекты: государства, народы и культуры. События и миграции вынесены из схемы.</p>
           </div>
         </div>
       </div>
@@ -213,19 +211,13 @@
             <p><b>По вертикали</b> — регионы мира и их суб-регионы (дорожки).<br>
                <b>По горизонтали</b> — время, слева направо.</p>
             <h4>Ленты</h4>
-            <p>Лента — народ, культура или государство. <b>Толщина ленты</b> = доля площади
-               суб-региона, которую занимает государство; она меняется во времени.
-               Государство, охватившее несколько регионов, рисуется лентой в каждом из них.</p>
+            <p>Лента — народ, культура или государство. Для государств толщина опирается на долю площади,
+               но шкала нелинейная: малые государства увеличены, чтобы их можно было различить и подписать.
+               Ползунок «Толщина государств» меняет степень усиления. Государство, охватившее несколько
+               регионов, рисуется в каждом из них; полосы без геометрии отмечены как условные.</p>
             <p>Наведите курсор — краткая справка, щёлкните — подробная статья.</p>
           </div>
           <div class="col">
-            <h4>Значки событий</h4>
-            <p class="pop-hint">Слой событий по умолчанию выключен: включите его в «Фильтрах».</p>
-            <div id="legendIcons" class="legend-icons"></div>
-          </div>
-          <div class="col">
-            <h4>Линии</h4>
-            <div id="legendLines" class="legend-icons"></div>
             <h4>Эпохи</h4>
             <div id="legendEras" class="chips"></div>
           </div>

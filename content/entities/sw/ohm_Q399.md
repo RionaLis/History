@@ -3,19 +3,23 @@ id: "ohm_Q399"
 name: "Армения"
 kind: "entity"
 type: "state"
-start: 1920
-end: 1921
+start: 1991
+end: 2000
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "Հայաստան"
 aliases: ["Հայաստան"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2694891, Wikidata Q399)."
-spans: []
 ohm_id: 2694891
 wikidata: "Q399"
 name_ohm: "Հայաստան"
+color: "#91d1d4"
+area_source: "OHM relation 2694891; spherical area, outer rings minus inner rings"
+area_series: [{"year":1991,"area_km2":29702.42},{"year":2000,"area_km2":29702.42}]
+spans:
+  - lane: "sw_irn"
+    points: [[1991,0.02408],[2000,0.02408]]
 ---
 
 # Армения
@@ -25,7 +29,7 @@ name_ohm: "Հայաստան"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1920 — 1921 н.э. |
+| **Период** | 1991 н.э. — 2000 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q399 |
 | **OHM id** | 2694891 |

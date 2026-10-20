@@ -4,18 +4,22 @@ name: "Болгария"
 kind: "entity"
 type: "state"
 start: 1990
-end: None
+end: 2000
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "България"
 aliases: ["България"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692865, Wikidata Q219)."
-spans: []
 ohm_id: 2692865
 wikidata: "Q219"
 name_ohm: "България"
+color: "#9cb7d8"
+area_source: "OHM relation 2692865; spherical area, outer rings minus inner rings"
+area_series: [{"year":1990,"area_km2":117115.256},{"year":2000,"area_km2":117115.256}]
+spans:
+  - lane: "sw_ana"
+    points: [[1990,0.04782],[2000,0.04782]]
 ---
 
 # Болгария
@@ -25,7 +29,7 @@ name_ohm: "България"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1990 н.э. |
+| **Период** | 1990 н.э. — 2000 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q219 |
 | **OHM id** | 2692865 |

@@ -4,18 +4,22 @@ name: "Албания"
 kind: "entity"
 type: "state"
 start: 1991
-end: None
+end: 2000
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "Shqipëri"
 aliases: ["Shqipëri"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692864, Wikidata Q222)."
-spans: []
 ohm_id: 2692864
 wikidata: "Q222"
 name_ohm: "Shqipëri"
+color: "#ddc4a7"
+area_source: "OHM relation 2692864; spherical area, outer rings minus inner rings"
+area_series: [{"year":1991,"area_km2":34935.433},{"year":2000,"area_km2":34935.433}]
+spans:
+  - lane: "sw_ana"
+    points: [[1991,0.02612],[2000,0.02612]]
 ---
 
 # Албания
@@ -25,7 +29,7 @@ name_ohm: "Shqipëri"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1991 н.э. |
+| **Период** | 1991 н.э. — 2000 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q222 |
 | **OHM id** | 2692864 |

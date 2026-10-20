@@ -4,18 +4,22 @@ name: "Демократическая Республика Конго"
 kind: "entity"
 type: "state"
 start: 1997
-end: None
+end: 2000
 region: "af"
 regions: ["af"]
-color: "#888888"
 label: "République démocratique du Congo"
 aliases: ["République démocratique du Congo"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2831667, Wikidata Q974)."
-spans: []
 ohm_id: 2831667
 wikidata: "Q974"
 name_ohm: "République démocratique du Congo"
+color: "#89d1c9"
+area_source: "OHM relation 2831667; spherical area, outer rings minus inner rings"
+area_series: [{"year":1997,"area_km2":2341830.36},{"year":2000,"area_km2":2341830.36}]
+spans:
+  - lane: "af_ce"
+    points: [[1997,0.35747],[2000,0.35747]]
 ---
 
 # Демократическая Республика Конго
@@ -25,7 +29,7 @@ name_ohm: "République démocratique du Congo"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1997 н.э. |
+| **Период** | 1997 н.э. — 2000 н.э. |
 | **Регион** | af |
 | **Wikidata** | Q974 |
 | **OHM id** | 2831667 |

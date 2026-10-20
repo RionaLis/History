@@ -4,18 +4,22 @@ name: "Белиз"
 kind: "entity"
 type: "state"
 start: 1981
-end: 2019
+end: 1992
 region: "na"
 regions: ["na"]
-color: "#888888"
 label: "Belize"
 aliases: ["Belize"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2695873, Wikidata Q242)."
-spans: []
 ohm_id: 2695873
 wikidata: "Q242"
 name_ohm: "Belize"
+color: "#d798ba"
+area_source: "OHM relation 2695873; spherical area, outer rings minus inner rings"
+area_series: [{"year":1981,"area_km2":31774.97},{"year":1992,"area_km2":31774.97}]
+spans:
+  - lane: "na_mex"
+    points: [[1981,0.02698],[1992,0.02698]]
 ---
 
 # Белиз
@@ -25,7 +29,7 @@ name_ohm: "Belize"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1981 — 2019 н.э. |
+| **Период** | 1981 н.э. — 1992 н.э. |
 | **Регион** | na |
 | **Wikidata** | Q242 |
 | **OHM id** | 2695873 |

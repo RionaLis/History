@@ -3,19 +3,23 @@ id: "ohm_Q227"
 name: "Азербайджан"
 kind: "entity"
 type: "state"
-start: 1991
-end: 2018
+start: 2018
+end: 2019
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "Azərbaycan"
 aliases: ["Azərbaycan"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2694892, Wikidata Q227)."
-spans: []
 ohm_id: 2694892
 wikidata: "Q227"
 name_ohm: "Azərbaycan"
+color: "#deb2ab"
+area_source: "OHM relation 2694892; spherical area, outer rings minus inner rings"
+area_series: [{"year":2018,"area_km2":107939.728},{"year":2019,"area_km2":107939.728}]
+spans:
+  - lane: "sw_irn"
+    points: [[2018,0.04591],[2019,0.04591]]
 ---
 
 # Азербайджан
@@ -25,7 +29,7 @@ name_ohm: "Azərbaycan"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1991 — 2018 н.э. |
+| **Период** | 2018 н.э. — 2019 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q227 |
 | **OHM id** | 2694892 |

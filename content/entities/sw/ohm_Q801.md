@@ -3,19 +3,23 @@ id: "ohm_Q801"
 name: "Израиль"
 kind: "entity"
 type: "state"
-start: 1948
-end: 2000
+start: 1982
+end: 1983
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "ישראל"
 aliases: ["ישראל"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2734968, Wikidata Q801)."
-spans: []
 ohm_id: 2734968
 wikidata: "Q801"
 name_ohm: "ישראל"
+color: "#95d6d5"
+area_source: "OHM relation 2734968; spherical area, outer rings minus inner rings"
+area_series: [{"year":1982,"area_km2":28945.019},{"year":1983,"area_km2":28945.019}]
+spans:
+  - lane: "sw_lev"
+    points: [[1982,0.02377],[1983,0.02377]]
 ---
 
 # Израиль
@@ -25,7 +29,7 @@ name_ohm: "ישראל"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1948 — 2000 н.э. |
+| **Период** | 1982 н.э. — 1983 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q801 |
 | **OHM id** | 2734968 |

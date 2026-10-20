@@ -3,19 +3,23 @@ id: "ohm_Q31"
 name: "Бельгия"
 kind: "entity"
 type: "state"
-start: 1830
+start: 1945
 end: 1987
 region: "eu"
 regions: ["eu"]
-color: "#888888"
 label: "Belgique"
 aliases: ["Belgique"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692857, Wikidata Q31)."
-spans: []
 ohm_id: 2692857
 wikidata: "Q31"
 name_ohm: "Belgique"
+color: "#c2abde"
+area_source: "OHM relation 2692857; spherical area, outer rings minus inner rings"
+area_series: [{"year":1945,"area_km2":30956.013},{"year":1987,"area_km2":30956.013}]
+spans:
+  - lane: "eu_cen"
+    points: [[1945,0.07367],[1987,0.07367]]
 ---
 
 # Бельгия
@@ -25,7 +29,7 @@ name_ohm: "Belgique"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1830 — 1987 н.э. |
+| **Период** | 1945 н.э. — 1987 н.э. |
 | **Регион** | eu |
 | **Wikidata** | Q31 |
 | **OHM id** | 2692857 |

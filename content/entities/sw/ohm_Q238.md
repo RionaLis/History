@@ -4,18 +4,22 @@ name: "Сан-Марино"
 kind: "entity"
 type: "state"
 start: 1291
-end: 1739
+end: 1320
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "Respublica Sancti Marini"
 aliases: ["Respublica Sancti Marini"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692730, Wikidata Q238)."
-spans: []
 ohm_id: 2692730
 wikidata: "Q238"
 name_ohm: "Respublica Sancti Marini"
+color: "#deceab"
+area_source: "OHM relation 2692730; spherical area, outer rings minus inner rings"
+area_series: [{"year":1291,"area_km2":22.169},{"year":1320,"area_km2":22.169}]
+spans:
+  - lane: "sw_ana"
+    points: [[1291,0.01200],[1320,0.01200]]
 ---
 
 # Сан-Марино
@@ -25,7 +29,7 @@ name_ohm: "Respublica Sancti Marini"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1291 — 1739 н.э. |
+| **Период** | 1291 н.э. — 1320 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q238 |
 | **OHM id** | 2692730 |

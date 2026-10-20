@@ -3,19 +3,23 @@ id: "ohm_Q398"
 name: "Бахрейн"
 kind: "entity"
 type: "state"
-start: 1868
+start: 1971
 end: 1993
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "البحرين"
 aliases: ["البحرين"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2825870, Wikidata Q398)."
-spans: []
 ohm_id: 2825870
 wikidata: "Q398"
 name_ohm: "البحرين"
+color: "#d6deab"
+area_source: "OHM relation 2825870; spherical area, outer rings minus inner rings"
+area_series: [{"year":1971,"area_km2":2192.888},{"year":1993,"area_km2":2192.888}]
+spans:
+  - lane: "sw_irn"
+    points: [[1971,0.01200],[1993,0.01200]]
 ---
 
 # Бахрейн
@@ -25,7 +29,7 @@ name_ohm: "البحرين"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1868 — 1993 н.э. |
+| **Период** | 1971 н.э. — 1993 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q398 |
 | **OHM id** | 2825870 |

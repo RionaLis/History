@@ -4,18 +4,22 @@ name: "Бразилия"
 kind: "entity"
 type: "state"
 start: 1889
-end: 1993
+end: 1904
 region: "sa"
 regions: ["sa"]
-color: "#888888"
 label: "Brasil"
 aliases: ["Brasil"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2751092, Wikidata Q155)."
-spans: []
 ohm_id: 2751092
 wikidata: "Q155"
 name_ohm: "Brasil"
+color: "#95d6cb"
+area_source: "OHM relation 2751092; spherical area, outer rings minus inner rings"
+area_series: [{"year":1889,"area_km2":8226390.416},{"year":1904,"area_km2":8226390.416}]
+spans:
+  - lane: "sa_amz"
+    points: [[1889,0.68798],[1904,0.68798]]
 ---
 
 # Бразилия
@@ -25,7 +29,7 @@ name_ohm: "Brasil"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1889 — 1993 н.э. |
+| **Период** | 1889 н.э. — 1904 н.э. |
 | **Регион** | sa |
 | **Wikidata** | Q155 |
 | **OHM id** | 2751092 |

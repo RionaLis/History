@@ -4,18 +4,22 @@ name: "Литва"
 kind: "entity"
 type: "state"
 start: 1990
-end: None
+end: 2000
 region: "eu"
 regions: ["eu"]
-color: "#888888"
 label: "Lietuva"
 aliases: ["Lietuva"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692216, Wikidata Q37)."
-spans: []
 ohm_id: 2692216
 wikidata: "Q37"
 name_ohm: "Lietuva"
+color: "#d4cf91"
+area_source: "OHM relation 2692216; spherical area, outer rings minus inner rings"
+area_series: [{"year":1990,"area_km2":66841.514},{"year":2000,"area_km2":66841.514}]
+spans:
+  - lane: "eu_cen"
+    points: [[1990,0.10826],[2000,0.10826]]
 ---
 
 # Литва
@@ -25,7 +29,7 @@ name_ohm: "Lietuva"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1990 н.э. |
+| **Период** | 1990 н.э. — 2000 н.э. |
 | **Регион** | eu |
 | **Wikidata** | Q37 |
 | **OHM id** | 2692216 |

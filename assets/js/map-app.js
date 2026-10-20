@@ -555,6 +555,33 @@
 
   /* ==================== Инициализация стиля ================ */
 
+  // Названия OHM-контуров берём из русских имён MD-карточек. Ключи —
+  // исходные name/name:en варианты из карточки; базовые подписи других объектов
+  // остаются без изменений.
+  var russianLabelsApplied = false;
+  function applyRussianEntityLabels() {
+    if (!styleReady || russianLabelsApplied) return;
+    fetch('data/area-tool-entities.json', { cache: 'no-cache' }).then(function (r) {
+      if (!r.ok) throw new Error('catalogue ' + r.status);
+      return r.json();
+    }).then(function (items) {
+      var expr = ['match', ['get', 'name']];
+      var n = 0, seen = Object.create(null);
+      items.forEach(function (item) {
+        if (!item.name || !item.label || seen[item.label]) return;
+        seen[item.label] = true;
+        expr.push(item.label, item.name); n++;
+      });
+      expr.push(['coalesce', ['get', 'name_ru'], ['get', 'name']]);
+      ['labels-empires', 'labels-countries'].forEach(function (id) {
+        if (map.getLayer(id)) {
+          try { map.setLayoutProperty(id, 'text-field', expr); } catch (e) {}
+        }
+      });
+      russianLabelsApplied = n > 0;
+    }).catch(function (e) { console.warn('Русские подписи OHM:', e); });
+  }
+
   var interactionsBound = false;
 
   // Вызывается и на styledata (раньше), и на load (страховка).
@@ -562,6 +589,7 @@
   function initStyleDependent() {
     applyProjectionToMap();
     styleReady = true;
+    applyRussianEntityLabels();
     applyDateFilter(true);
     try { addEventsLayers(); } catch (e) { console.warn('addEventsLayers:', e); }
     try { addModernBorders(); } catch (e) { console.warn('addModernBorders:', e); }
@@ -577,6 +605,12 @@
 
   map.once('styledata', initStyleDependent);
   map.once('load', initStyleDependent);
+  // Не держим спиннер до события `idle`: некоторые OHM-векторные источники
+  // продолжают фоновые загрузки и могут отложить idle, хотя карта уже готова.
+  map.once('load', function () {
+    firstIdle = true;
+    hideLoader();
+  });
 
   var styleFetchFailed = false;
 
@@ -638,7 +672,10 @@
           var shtml = statePopupHtml(sp);
           if (window.CHRONO_LINK) {
             var ent = window.CHRONO_LINK.findEntity(sp.name_ru || sp.name);
-            if (ent) shtml += linkBtn('entity', ent.id, 'в ленту: ' + ent.name);
+            if (ent) {
+              window.CHRONO_LINK.selectEntity(ent.id);
+              shtml += linkBtn('entity', ent.id, 'в ленту: ' + ent.name);
+            }
           }
           var popup2 = new maplibregl.Popup({ maxWidth: '280px', offset: 8 })
             .setLngLat(e.lngLat)

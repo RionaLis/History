@@ -1,7 +1,7 @@
 // Главная страница: загрузка данных, панель управления, подсказки, статьи.
 import { Chart } from './chart.js';
 import { formatYear, formatSpan, formatAxisYear, ticksForRange } from './scale.js';
-import { drawIcon, ICON_LABELS } from './icons.js';
+import { ICON_LABELS } from './icons.js';
 import { renderMarkdown, stripFrontmatter } from './md.js';
 import { parseHistoricalYear } from './year-input.js';
 
@@ -38,7 +38,10 @@ async function init() {
     autoHeight: !!document.querySelector('.table-zone'),
     onHover: showTip,
     onSelect: hit => {
-      if (hit.kind === 'entity') openDoc(hit.obj, 'entity');
+      if (hit.kind === 'entity') {
+        if (window.CHRONO_LINK) window.CHRONO_LINK.highlightEntity(hit.obj.id);
+        openDoc(hit.obj, 'entity');
+      }
       else if (hit.kind === 'event') openDoc(hit.obj, 'event');
       else if (hit.kind === 'migration') openDoc(hit.obj, 'migration');
       else if (hit.kind === 'lane') {
@@ -49,8 +52,8 @@ async function init() {
       }
     },
     onView: syncView,
+    onDateChange: year => { if (window.chronomap?.setYear) window.chronomap.setYear(year); },
   });
-  chart.fitRowsToView();
   window.chart = chart;   // удобно для отладки из консоли браузера
   buildFilters();
   buildLegend();
@@ -63,7 +66,7 @@ async function init() {
   // MapLibre-скрипт загружен раньше модулей: можно подписаться сразу,
   // без периодического ожидания хука даты.
   if (window.chronomap && typeof window.chronomap.onYearChange === 'function') {
-    window.chronomap.onYearChange(() => drawMinimap());
+    window.chronomap.onYearChange(() => { drawMinimap(); chart.draw(); });
   }
   window.addEventListener('resize', () => drawMinimap());
   if (location.hash) openFromHash();
@@ -115,15 +118,14 @@ function showTip(hit, ev) {
 /* ------------------------------------------------ тулбар */
 function wireToolbar() {
   const zr = $('#zoomRange');
-  const kToSlider = k => Math.round(1000 * Math.log(k) / Math.log(chart.maxZoom));
-  const sliderToK = v => Math.pow(chart.maxZoom, v / 1000);
+  const kToSlider = k => chart.maxZoom <= 1 ? 0 : Math.round(1000 * Math.log(k) / Math.log(chart.maxZoom));
+  const sliderToK = (v, center) => Math.pow(chart.zoomLimitAt(center), v / 1000);
   zr.addEventListener('input', () => {
     const selectedYear = window.chronomap?.state?.year;
     const center = Number.isFinite(selectedYear)
       ? selectedYear
       : chart.yearOf(chart.plotX() + chart.plotW() / 2);
-    chart.view.k = sliderToK(+zr.value);
-    chart.clampView();
+    chart.view.k = sliderToK(+zr.value, center);
     chart.centerOn(center, 'zoom');
   });
   $('#zoomIn').onclick = () => chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1.6, 'zoom');
@@ -131,7 +133,7 @@ function wireToolbar() {
   document.querySelectorAll('[data-span]').forEach(b => {
     b.onclick = () => {
       const v = b.dataset.span;
-      if (v === 'all') { chart.view.k = 1; chart.view.ux = 0; chart.draw(); syncView(); }
+      if (v === 'all') { chart.view.k = 1; chart.view.ux = 0; chart.clampView(); chart.draw(); syncView(); }
       else {
         // рамка раскрывается ВОКРУГ выбранной даты карты (источник истины),
         // а не вокруг центра прижатого к краю окна.
@@ -142,8 +144,30 @@ function wireToolbar() {
       syncView();
     };
   });
-  $('#rowRange').addEventListener('input', e => chart.setRowUnit(+e.target.value));
-  $('#fitRows').onclick = () => { chart.fitRowsToView(); $('#rowRange').value = Math.round(chart.rowUnit); };
+  const verticalRange = $('#verticalRange'), verticalOut = $('#verticalOut');
+  const verticalMax = () => chart.verticalMaxScale();
+  const sliderToVertical = v => Math.exp(Math.log(verticalMax()) * (+v / 1000));
+  const verticalToSlider = v => verticalMax() <= 1 ? 0 : Math.round(1000 * Math.log(Math.max(1, v)) / Math.log(verticalMax()));
+  const updateVerticalOut = () => {
+    if (verticalOut) verticalOut.textContent = `×${chart.verticalScale.toFixed(1).replace('.', ',')}`;
+    if (verticalRange) verticalRange.value = String(verticalToSlider(chart.verticalScale));
+  };
+  verticalRange.addEventListener('input', () => {
+    chart.setVerticalScale(sliderToVertical(verticalRange.value));
+    updateVerticalOut();
+  });
+  const thicknessRange = $('#thicknessRange'), thicknessOut = $('#thicknessOut');
+  if (thicknessRange) {
+    const updateThickness = () => {
+      const gamma = +thicknessRange.value / 100;
+      chart.setStateGamma(gamma);
+      if (thicknessOut) thicknessOut.textContent = gamma <= 0.5 ? 'сильно нелинейно' : gamma < 0.8 ? 'малые заметнее' : 'почти площадь';
+    };
+    thicknessRange.addEventListener('input', updateThickness);
+    updateThickness();
+  }
+  updateVerticalOut();
+  window.addEventListener('resize', updateVerticalOut);
   $('#chkLinear').onchange = e => {
     chart.setScaleMode(e.target.checked ? 'linear' : 'poster', 'zoom');
   };
@@ -255,8 +279,7 @@ function syncView(_instance, source) {
   }
   $('#spanOut').textContent = `${Math.round(b - a)} лет на экране`;
   $('#status').textContent =
-    `${formatYear(a, true)} — ${formatYear(b, true)} · объектов: ${DATA.meta.counts.entities}, ` +
-    `переселений: ${DATA.meta.counts.migrations}`;
+    `${formatYear(a, true)} — ${formatYear(b, true)} · объектов: ${DATA.meta.counts.entities}`;
   if (chart._kToSlider) $('#zoomRange').value = chart._kToSlider(chart.view.k);
   drawMinimap();
   // рамка сдвинулась → в ленте обновить силуэты событий по краям
@@ -294,13 +317,6 @@ function buildFilters() {
     ft.appendChild(el('label', '', `<input type="checkbox" checked data-type="${t}">
       ${TYPE_LABEL[t] || t} <span class="tagline">(${n})</span>`));
   }
-  const fi = $('#fIcons'); fi.innerHTML = '';
-  for (const ic of DATA.icons) {
-    const n = DATA.events.filter(e => e.icon === ic.id).length;
-    if (!n) continue;   // типы без событий не показываем
-    fi.appendChild(el('label', '', `<input type="checkbox" checked data-icon="${ic.id}">
-      ${ICON_LABELS[ic.id] || ic.name} <span class="tagline">(${n})</span>`));
-  }
   const fe = $('#fEras'); fe.innerHTML = '';
   for (const era of DATA.eras) {
     const b = el('button', '', era.name);
@@ -316,14 +332,10 @@ function buildFilters() {
     } else if (t.dataset.type) {
       t.checked ? chart.filters.types.add(t.dataset.type) : chart.filters.types.delete(t.dataset.type);
       queueFilterUpdate(true, false);
-    } else if (t.dataset.icon) {
-      t.checked ? chart.filters.iconTypes.add(t.dataset.icon) : chart.filters.iconTypes.delete(t.dataset.icon);
-      queueFilterUpdate(false, false);
     }
   });
-  $('#chkEvents').onchange = e => { chart.filters.showEvents = e.target.checked; chart.draw(); };
-  $('#chkMig').onchange = e => { chart.filters.showMigrations = e.target.checked; chart.draw(); };
-  $('#chkLabels').onchange = e => { chart.filters.showLabels = e.target.checked; chart.draw(); };
+  const labelsToggle = $('#chkLabels');
+  if (labelsToggle) labelsToggle.onchange = e => { chart.filters.showLabels = e.target.checked; chart.draw(); };
   document.querySelectorAll('[data-all],[data-none]').forEach(a => {
     a.onclick = ev => {
       ev.preventDefault();
@@ -340,39 +352,6 @@ function buildFilters() {
 
 /* ------------------------------------------------ легенда */
 function buildLegend() {
-  const box = $('#legendIcons');
-  if (box.dataset.ready) return;
-  box.dataset.ready = '1';
-  for (const ic of DATA.icons) {
-    const row = el('div', 'row');
-    const cv = el('canvas');
-    cv.width = 48; cv.height = 48;
-    const cx = cv.getContext('2d');
-    cx.setTransform(2, 0, 0, 2, 0, 0);
-    drawIcon(cx, ic.id, 12, 12, 9, { halo: false });
-    row.appendChild(cv);
-    row.appendChild(el('span', '', ICON_LABELS[ic.id] || ic.name));
-    box.appendChild(row);
-  }
-  const lines = $('#legendLines');
-  const styles = [['migration', 'переселение народа'], ['invasion', 'вторжение, завоевание'],
-                  ['trade', 'торговая сеть']];
-  for (const [kind, name] of styles) {
-    const row = el('div', 'row');
-    const cv = el('canvas'); cv.width = 110; cv.height = 24;
-    cv.style.width = '55px'; cv.style.height = '12px';
-    const cx = cv.getContext('2d');
-    cx.setTransform(2, 0, 0, 2, 0, 0);
-    cx.strokeStyle = { migration: '#5a4632', invasion: '#9c2b2b', trade: '#1f6f6a' }[kind];
-    cx.lineWidth = 2;
-    cx.setLineDash({ migration: [6, 4], invasion: [], trade: [2, 3] }[kind]);
-    cx.beginPath(); cx.moveTo(2, 6); cx.lineTo(48, 6); cx.stroke();
-    cx.setLineDash([]);
-    cx.beginPath(); cx.moveTo(53, 6); cx.lineTo(44, 2); cx.lineTo(44, 10); cx.closePath();
-    cx.fillStyle = cx.strokeStyle; cx.fill();
-    row.appendChild(cv); row.appendChild(el('span', '', name));
-    lines.appendChild(row);
-  }
   const eras = $('#legendEras');
   for (const era of DATA.eras) {
     const b = el('button', '', `${era.name}`);

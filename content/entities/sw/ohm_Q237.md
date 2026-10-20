@@ -4,18 +4,22 @@ name: "Ватикан"
 kind: "entity"
 type: "state"
 start: 1929
-end: None
+end: 2000
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "Status Civitatis Vaticanae"
 aliases: ["Status Civitatis Vaticanae"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2751259, Wikidata Q237)."
-spans: []
 ohm_id: 2751259
 wikidata: "Q237"
 name_ohm: "Status Civitatis Vaticanae"
+color: "#deabb4"
+area_source: "OHM relation 2751259; spherical area, outer rings minus inner rings"
+area_series: [{"year":1929,"area_km2":0.495},{"year":2000,"area_km2":0.495}]
+spans:
+  - lane: "sw_ana"
+    points: [[1929,0.01200],[2000,0.01200]]
 ---
 
 # Ватикан
@@ -25,7 +29,7 @@ name_ohm: "Status Civitatis Vaticanae"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1929 н.э. |
+| **Период** | 1929 н.э. — 2000 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q237 |
 | **OHM id** | 2751259 |

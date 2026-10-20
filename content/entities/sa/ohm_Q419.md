@@ -3,19 +3,23 @@ id: "ohm_Q419"
 name: "Перу"
 kind: "entity"
 type: "state"
-start: 1922
-end: 1942
+start: 1942
+end: 2000
 region: "sa"
 regions: ["sa"]
-color: "#888888"
 label: "Perú"
 aliases: ["Perú"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2806975, Wikidata Q419)."
-spans: []
 ohm_id: 2806975
 wikidata: "Q419"
 name_ohm: "Perú"
+color: "#9b95d6"
+area_source: "OHM relation 2806975; spherical area, outer rings minus inner rings"
+area_series: [{"year":1942,"area_km2":1314910.117},{"year":2000,"area_km2":1314910.117}]
+spans:
+  - lane: "sa_and"
+    points: [[1942,0.27506],[2000,0.27506]]
 ---
 
 # Перу
@@ -25,7 +29,7 @@ name_ohm: "Perú"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1922 — 1942 н.э. |
+| **Период** | 1942 н.э. — 2000 н.э. |
 | **Регион** | sa |
 | **Wikidata** | Q419 |
 | **OHM id** | 2806975 |

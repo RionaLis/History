@@ -7,15 +7,19 @@ start: 1991
 end: 2018
 region: "ea"
 regions: ["ea"]
-color: "#888888"
 label: "Қазақстан"
 aliases: ["Қазақстан"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2697938, Wikidata Q232)."
-spans: []
 ohm_id: 2697938
 wikidata: "Q232"
 name_ohm: "Қазақстан"
+color: "#c59cd8"
+area_source: "OHM relation 2697938; spherical area, outer rings minus inner rings"
+area_series: [{"year":1991,"area_km2":2713180.265},{"year":2018,"area_km2":2713180.265}]
+spans:
+  - lane: "ea_tib"
+    points: [[1991,0.35308],[2018,0.35308]]
 ---
 
 # Казахстан
@@ -25,7 +29,7 @@ name_ohm: "Қазақстан"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1991 — 2018 н.э. |
+| **Период** | 1991 н.э. — 2018 н.э. |
 | **Регион** | ea |
 | **Wikidata** | Q232 |
 | **OHM id** | 2697938 |

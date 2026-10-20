@@ -4,18 +4,22 @@ name: "Колумбия"
 kind: "entity"
 type: "state"
 start: 1886
-end: 1978
+end: 1903
 region: "sa"
 regions: ["sa"]
-color: "#888888"
 label: "Colombia"
 aliases: ["Colombia"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2848969, Wikidata Q739)."
-spans: []
 ohm_id: 2848969
 wikidata: "Q739"
 name_ohm: "Colombia"
+color: "#d6dda7"
+area_source: "OHM relation 2848969; spherical area, outer rings minus inner rings"
+area_series: [{"year":1886,"area_km2":1309938.566},{"year":1903,"area_km2":1309938.566}]
+spans:
+  - lane: "sa_and"
+    points: [[1886,0.27454],[1903,0.27454]]
 ---
 
 # Колумбия
@@ -25,7 +29,7 @@ name_ohm: "Colombia"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1886 — 1978 н.э. |
+| **Период** | 1886 н.э. — 1903 н.э. |
 | **Регион** | sa |
 | **Wikidata** | Q739 |
 | **OHM id** | 2848969 |

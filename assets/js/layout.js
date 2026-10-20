@@ -51,7 +51,7 @@ function shareAt(points, year) {
  * @returns Map<entityId, {entity, runs: Array<Array<[year, top, bottom]>>}>
  * координаты top/bottom — доли высоты дорожки (0 сверху, 1 снизу).
  */
-export function stackLane(items) {
+export function stackLane(items, stateGamma = 0.65) {
   // items: [{entity, points}]
   if (!items.length) return new Map();
   const ordered = items.slice().sort((a, b) => {
@@ -76,8 +76,16 @@ export function stackLane(items) {
       open.clear();
       continue;
     }
-    const sa = active.map(it => shareAt(it.points, ya));
-    const sb = active.map(it => shareAt(it.points, yb));
+    // Нелинейная визуальная шкала: выпуклость уменьшена для государств, чтобы
+    // малые политии оставались различимыми и могли получить подпись.
+    // Исходная areaSeries остаётся нетронутой; трансформация только экранная.
+    const visualShare = (it, year) => {
+      const value = shareAt(it.points, year);
+      return ['state', 'empire'].includes(it.entity.type)
+        ? Math.max(0.012, value) ** stateGamma : value;
+    };
+    const sa = active.map(it => visualShare(it, ya));
+    const sb = active.map(it => visualShare(it, yb));
     const suma = sa.reduce((x, v) => x + v, 0);
     const sumb = sb.reduce((x, v) => x + v, 0);
     const ka = suma > 1 ? 1 / suma : 1;
@@ -116,7 +124,7 @@ export function stackLane(items) {
  * Полная раскладка лент по всем дорожкам.
  * @returns Map<laneId, Array<{entity, runs}>>
  */
-export function layoutEntities(entities, laneIds) {
+export function layoutEntities(entities, laneIds, stateGamma = 0.65) {
   const perLane = new Map();
   for (const id of laneIds) perLane.set(id, []);
   for (const e of entities) {
@@ -127,7 +135,7 @@ export function layoutEntities(entities, laneIds) {
   }
   const res = new Map();
   for (const [laneId, items] of perLane) {
-    const stacked = stackLane(items);
+    const stacked = stackLane(items, stateGamma);
     res.set(laneId, [...stacked.values()].filter(v => v.runs.length));
   }
   return res;

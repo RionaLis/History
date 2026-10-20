@@ -7,15 +7,19 @@ start: 1968
 end: 1984
 region: "af"
 regions: ["af"]
-color: "#888888"
 label: "Guinea Ecuatorial"
 aliases: ["Guinea Ecuatorial"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2831664, Wikidata Q983)."
-spans: []
 ohm_id: 2831664
 wikidata: "Q983"
 name_ohm: "Guinea Ecuatorial"
+color: "#95b8d6"
+area_source: "OHM relation 2831664; spherical area, outer rings minus inner rings"
+area_series: [{"year":1968,"area_km2":30041.839},{"year":1984,"area_km2":30041.839}]
+spans:
+  - lane: "af_we"
+    points: [[1968,0.04049],[1984,0.04049]]
 ---
 
 # Экваториальная Гвинея
@@ -25,7 +29,7 @@ name_ohm: "Guinea Ecuatorial"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1968 — 1984 н.э. |
+| **Период** | 1968 н.э. — 1984 н.э. |
 | **Регион** | af |
 | **Wikidata** | Q983 |
 | **OHM id** | 2831664 |

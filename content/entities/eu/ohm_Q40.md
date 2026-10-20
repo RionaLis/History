@@ -3,19 +3,23 @@ id: "ohm_Q40"
 name: "Австрия"
 kind: "entity"
 type: "state"
-start: 1920
+start: 1945
 end: 1960
 region: "eu"
 regions: ["eu"]
-color: "#888888"
 label: "Österreich"
 aliases: ["Österreich"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692360, Wikidata Q40)."
-spans: []
 ohm_id: 2692360
 wikidata: "Q40"
 name_ohm: "Österreich"
+color: "#d7deab"
+area_source: "OHM relation 2692360; spherical area, outer rings minus inner rings"
+area_series: [{"year":1945,"area_km2":83716.419},{"year":1960,"area_km2":83716.419}]
+spans:
+  - lane: "eu_cen"
+    points: [[1945,0.12116],[1960,0.12116]]
 ---
 
 # Австрия
@@ -25,7 +29,7 @@ name_ohm: "Österreich"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1920 — 1960 н.э. |
+| **Период** | 1945 н.э. — 1960 н.э. |
 | **Регион** | eu |
 | **Wikidata** | Q40 |
 | **OHM id** | 2692360 |

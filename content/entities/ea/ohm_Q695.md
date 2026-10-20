@@ -4,18 +4,22 @@ name: "Палау"
 kind: "entity"
 type: "state"
 start: 1981
-end: None
+end: 2000
 region: "ea"
 regions: ["ea"]
-color: "#888888"
 label: "Belau"
 aliases: ["Belau"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2889775, Wikidata Q695)."
-spans: []
 ohm_id: 2889775
 wikidata: "Q695"
 name_ohm: "Belau"
+color: "#dbdda7"
+area_source: "OHM relation 2889775; spherical area, outer rings minus inner rings"
+area_series: [{"year":1981,"area_km2":90110.094},{"year":2000,"area_km2":90110.094}]
+spans:
+  - lane: "ea_scn"
+    points: [[1981,0.06435],[2000,0.06435]]
 ---
 
 # Палау
@@ -25,7 +29,7 @@ name_ohm: "Belau"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1981 н.э. |
+| **Период** | 1981 н.э. — 2000 н.э. |
 | **Регион** | ea |
 | **Wikidata** | Q695 |
 | **OHM id** | 2889775 |

@@ -4,18 +4,22 @@ name: "Самоа"
 kind: "entity"
 type: "state"
 start: 1997
-end: None
+end: 2000
 region: "oc"
 regions: ["oc"]
-color: "#888888"
 label: "Samoa"
 aliases: ["Samoa"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2945166, Wikidata Q683)."
-spans: []
 ohm_id: 2945166
 wikidata: "Q683"
 name_ohm: "Samoa"
+color: "#d89cae"
+area_source: "OHM relation 2945166; spherical area, outer rings minus inner rings"
+area_series: [{"year":1997,"area_km2":12938.342},{"year":2000,"area_km2":12938.342}]
+spans:
+  - lane: "oc_mel"
+    points: [[1997,0.02238],[2000,0.02238]]
 ---
 
 # Самоа
@@ -25,7 +29,7 @@ name_ohm: "Samoa"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1997 н.э. |
+| **Период** | 1997 н.э. — 2000 н.э. |
 | **Регион** | oc |
 | **Wikidata** | Q683 |
 | **OHM id** | 2945166 |

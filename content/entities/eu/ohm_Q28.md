@@ -4,18 +4,22 @@ name: "Венгрия"
 kind: "entity"
 type: "state"
 start: 1989
-end: None
+end: 2000
 region: "eu"
 regions: ["eu"]
-color: "#888888"
 label: "Magyarország"
 aliases: ["Magyarország"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2692358, Wikidata Q28)."
-spans: []
 ohm_id: 2692358
 wikidata: "Q28"
 name_ohm: "Magyarország"
+color: "#d49195"
+area_source: "OHM relation 2692358; spherical area, outer rings minus inner rings"
+area_series: [{"year":1989,"area_km2":92755.333},{"year":2000,"area_km2":92755.333}]
+spans:
+  - lane: "eu_est"
+    points: [[1989,0.12753],[2000,0.12753]]
 ---
 
 # Венгрия
@@ -25,7 +29,7 @@ name_ohm: "Magyarország"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1989 н.э. |
+| **Период** | 1989 н.э. — 2000 н.э. |
 | **Регион** | eu |
 | **Wikidata** | Q28 |
 | **OHM id** | 2692358 |

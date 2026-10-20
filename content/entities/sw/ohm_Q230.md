@@ -4,18 +4,22 @@ name: "Грузия"
 kind: "entity"
 type: "state"
 start: 1991
-end: None
+end: 2000
 region: "sw"
 regions: ["sw"]
-color: "#888888"
 label: "საქართველო"
 aliases: ["საქართველო"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2694893, Wikidata Q230)."
-spans: []
 ohm_id: 2694893
 wikidata: "Q230"
 name_ohm: "საქართველო"
+color: "#a7d0dd"
+area_source: "OHM relation 2694893; spherical area, outer rings minus inner rings"
+area_series: [{"year":1991,"area_km2":75638.534},{"year":2000,"area_km2":75638.534}]
+spans:
+  - lane: "sw_ana"
+    points: [[1991,0.03843],[2000,0.03843]]
 ---
 
 # Грузия
@@ -25,7 +29,7 @@ name_ohm: "საქართველო"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1991 н.э. |
+| **Период** | 1991 н.э. — 2000 н.э. |
 | **Регион** | sw |
 | **Wikidata** | Q230 |
 | **OHM id** | 2694893 |

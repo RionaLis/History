@@ -93,6 +93,28 @@ def main():
         })
     regions.sort(key=lambda r: r["order"])
     lane_ids = {l["id"]: r["id"] for r in regions for l in r["lanes"]}
+    year_min, year_max = SCALE_ANCHORS[0][0], SCALE_ANCHORS[-1][0]
+
+    def clip_points(points):
+        """Clip a piecewise-linear thickness series to the visible calendar."""
+        if points[-1][0] <= year_min or points[0][0] >= year_max:
+            return []
+        def at(year):
+            for j in range(1, len(points)):
+                y0, v0 = points[j - 1]; y1, v1 = points[j]
+                if y0 <= year <= y1:
+                    if y1 == y0: return v1
+                    return v0 + (v1 - v0) * (year - y0) / (y1 - y0)
+            return points[0][1] if year < points[0][0] else points[-1][1]
+        clipped = [[year_min, at(year_min)]] if points[0][0] < year_min else []
+        clipped += [p for p in points if year_min <= p[0] <= year_max]
+        if points[-1][0] > year_max:
+            clipped.append([year_max, at(year_max)])
+        # Remove duplicate boundary points while retaining two endpoints.
+        out = []
+        for point in clipped:
+            if not out or point[0] != out[-1][0]: out.append(point)
+        return out
 
     eras = []
     for full, rel in walk("eras"):
@@ -109,6 +131,7 @@ def main():
             continue
         spans = fm.get("spans") or []
         clean = []
+        had_valid_span = False
         for sp in spans:
             lane = sp.get("lane")
             if lane not in lane_ids:
@@ -119,25 +142,39 @@ def main():
             if len(pts) < 2:
                 errors.append(f"{rel}: у дорожки '{lane}' меньше двух точек")
                 continue
-            clean.append({"lane": lane, "points": pts})
-        if not clean:
+            had_valid_span = True
+            clipped = clip_points(pts)
+            if len(clipped) >= 2:
+                clean.append({"lane": lane, "points": clipped})
+        if not had_valid_span:
             errors.append(f"{rel}: нет корректных spans")
             continue
+        if not clean:
+            continue  # объект вне диапазона -4000…2000
+        start_year = int(fm.get("start", min(sp["points"][0][0] for sp in clean)))
+        end_year = int(fm.get("end", max(sp["points"][-1][0] for sp in clean)))
         entities.append({
             "id": fm["id"], "name": fm.get("name", fm["id"]), "type": fm.get("type", "state"),
-            "start": int(fm.get("start", clean[0]["points"][0][0])),
-            "end": int(fm.get("end", clean[0]["points"][-1][0])),
+            "start": max(year_min, start_year),
+            "end": min(year_max, end_year),
             "region": fm.get("region") or lane_ids[clean[0]["lane"]],
             "regions": fm.get("regions") or sorted({lane_ids[s["lane"]] for s in clean}),
-            "color": fm.get("color", "#bbbbbb"), "label": fm.get("label") or fm.get("name"),
+            "color": fm.get("color", "#bbbbbb"),
+            "label": (fm.get("name") if fm.get("ohm_id") else (fm.get("label") or fm.get("name"))),
             "summary": fm.get("summary", ""), "tags": fm.get("tags") or [],
             "aliases": fm.get("aliases") or [], "spans": clean, "path": rel,
+            "areaSeries": fm.get("area_series") or [], "areaSource": fm.get("area_source"),
+            "ohmId": fm.get("ohm_id"), "nameOhm": fm.get("name_ohm"),
+            "wikidata": fm.get("wikidata"),
         })
     entities.sort(key=lambda e: (e["start"], e["id"]))
 
     events = []
     for full, rel in walk("events"):
         fm, _ = read_md(full)
+        event_year = int(fm.get("year"))
+        if event_year < year_min or event_year > year_max:
+            continue
         if fm.get("lane") not in lane_ids:
             errors.append(f"{rel}: неизвестная дорожка '{fm.get('lane')}'")
             continue
@@ -171,8 +208,32 @@ def main():
         })
     migrations.sort(key=lambda m: m["start"])
 
+    # Автоматические/ручные связи преемственности государств, подготовленные
+    # tools/build_state_flows.py. Отдельно от миграций: это смена политических лент.
+    state_flows = []
+    flow_path = os.path.join(ROOT, "data", "state-flows.json")
+    if os.path.exists(flow_path):
+        try:
+            flow_doc = json.load(open(flow_path, encoding="utf8"))
+            flow_edges = {f["id"]: f for f in flow_doc.get("edges", [])
+                           if f.get("kind") != "manual"}
+            override_path = os.path.join(ROOT, "data", "state-flow-overrides.json")
+            if os.path.exists(override_path):
+                overrides = json.load(open(override_path, encoding="utf8"))
+                for eid in overrides.get("exclude", []): flow_edges.pop(eid, None)
+                manual = overrides.get("include", [])
+                manual_pairs = {(f.get("source"), f.get("target")) for f in manual}
+                flow_edges = {eid: f for eid, f in flow_edges.items()
+                              if f.get("kind") == "manual" or (f.get("source"), f.get("target")) not in manual_pairs}
+                for f in manual: flow_edges[f["id"]] = f
+            entity_ids = {e["id"] for e in entities}
+            state_flows = [f for f in flow_edges.values()
+                           if f.get("source") in entity_ids and f.get("target") in entity_ids]
+        except (OSError, ValueError):
+            warnings.append("data/state-flows.json не удалось разобрать")
+
     articles = []
-    for full, rel in walk("articles"):
+    for full, rel in walk("articles"): 
         fm, _ = read_md(full)
         articles.append({"id": fm.get("id", os.path.basename(rel)[:-3]),
                          "name": fm.get("name", ""), "summary": fm.get("summary", ""),
@@ -194,12 +255,12 @@ def main():
             "defaultRange": DEFAULT_VISIBLE_RANGE,
             "counts": {"regions": len(regions), "lanes": len(lane_ids),
                        "entities": len(entities), "events": len(events),
-                       "migrations": len(migrations), "eras": len(eras)},
+                       "migrations": len(migrations), "stateFlows": len(state_flows), "eras": len(eras)},
         },
         "scaleAnchors": SCALE_ANCHORS,
         "icons": ICONS,
         "regions": regions, "eras": eras, "entities": entities,
-        "events": events, "migrations": migrations, "articles": articles,
+        "events": events, "migrations": migrations, "stateFlows": state_flows, "articles": articles,
     }
 
     os.makedirs(os.path.join(ROOT, "data"), exist_ok=True)

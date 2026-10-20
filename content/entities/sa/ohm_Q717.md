@@ -4,18 +4,22 @@ name: "Венесуэла"
 kind: "entity"
 type: "state"
 start: 1999
-end: None
+end: 2000
 region: "sa"
 regions: ["sa"]
-color: "#888888"
 label: "Venezuela"
 aliases: ["Venezuela"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2807217, Wikidata Q717)."
-spans: []
 ohm_id: 2807217
 wikidata: "Q717"
 name_ohm: "Venezuela"
+color: "#b3d695"
+area_source: "OHM relation 2807217; spherical area, outer rings minus inner rings"
+area_series: [{"year":1999,"area_km2":1011437.597},{"year":2000,"area_km2":1011437.597}]
+spans:
+  - lane: "sa_car"
+    points: [[1999,0.24124],[2000,0.24124]]
 ---
 
 # Венесуэла
@@ -25,7 +29,7 @@ name_ohm: "Venezuela"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | с 1999 н.э. |
+| **Период** | 1999 н.э. — 2000 н.э. |
 | **Регион** | sa |
 | **Wikidata** | Q717 |
 | **OHM id** | 2807217 |

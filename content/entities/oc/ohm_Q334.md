@@ -7,15 +7,19 @@ start: 1965
 end: 2008
 region: "oc"
 regions: ["oc"]
-color: "#888888"
 label: "Singapore"
 aliases: ["Singapore"]
 tags: ["ohm", "state"]
 summary: "Объект из OpenHistoricalMap (OHM id 2698127, Wikidata Q334)."
-spans: []
 ohm_id: 2698127
 wikidata: "Q334"
 name_ohm: "Singapore"
+color: "#91d49f"
+area_source: "OHM relation 2698127; spherical area, outer rings minus inner rings"
+area_series: [{"year":1965,"area_km2":1338.656},{"year":2008,"area_km2":1338.656}]
+spans:
+  - lane: "oc_nus"
+    points: [[1965,0.01200],[2008,0.01200]]
 ---
 
 # Сингапур
@@ -25,7 +29,7 @@ name_ohm: "Singapore"
 | | |
 |---|---|
 | **Тип** | государство |
-| **Период** | 1965 — 2008 н.э. |
+| **Период** | 1965 н.э. — 2008 н.э. |
 | **Регион** | oc |
 | **Wikidata** | Q334 |
 | **OHM id** | 2698127 |
