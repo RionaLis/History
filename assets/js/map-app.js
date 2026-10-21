@@ -495,7 +495,67 @@
     });
   }
 
+  var stateHoverPopup = null;
+  var stateClickPopup = null;
+  var stateHoverKey = '';
+  var stateClickKey = '';
+
+  function hideStateHoverPopup() {
+    if (stateHoverPopup) stateHoverPopup.remove();
+    stateHoverPopup = null;
+    stateHoverKey = '';
+  }
+
+  function closeStateClickPopup() {
+    if (stateClickPopup) stateClickPopup.remove();
+    stateClickPopup = null;
+    stateClickKey = '';
+  }
+
+  function showStatePopup(feature, entity, coordinate) {
+    if (!feature || !feature.properties) return null;
+    hideStateHoverPopup();
+    closeStateClickPopup();
+    var html = statePopupHtml(feature.properties, entity, true);
+    if (entity && window.CHRONO_LINK) {
+      html += linkBtn('entity', entity.id, 'в ленту: ' + entity.name);
+    }
+    var props = feature.properties || {};
+    stateClickKey = String(props.name_ru || props.name || (feature.id == null ? '' : feature.id));
+    stateClickPopup = new maplibregl.Popup({ maxWidth: '280px', offset: 8 })
+      .setLngLat(coordinate || [0, 0])
+      .setHTML(html)
+      .addTo(map);
+    stateClickPopup.on('close', function () {
+      stateClickPopup = null;
+      stateClickKey = '';
+    });
+    wirePopupLinks(stateClickPopup);
+    return stateClickPopup;
+  }
+
+  function showStateHover(feature, coordinate, entity) {
+    if (!feature || !feature.properties) { hideStateHoverPopup(); return; }
+    var p = feature.properties;
+    var key = String(p.name_ru || p.name || (feature.id == null ? '' : feature.id));
+    if (stateClickPopup && key === stateClickKey) { hideStateHoverPopup(); return; }
+    if (key === stateHoverKey && stateHoverPopup) {
+      stateHoverPopup.setLngLat(coordinate);
+      return;
+    }
+    hideStateHoverPopup();
+    stateHoverKey = key;
+    stateHoverPopup = new maplibregl.Popup({
+      className: 'state-hover-popup', maxWidth: '260px', offset: 8,
+      closeButton: false, closeOnClick: false, closeOnMove: false,
+    }).setLngLat(coordinate)
+      .setHTML(statePopupHtml(p, entity, false))
+      .addTo(map);
+  }
+
   function showEventPopup(f) {
+    hideStateHoverPopup();
+    closeStateClickPopup();
     var p = f.properties;
     var color = C.eventKindColors[p.kind] || C.eventKindColors['другое'] || '#8e63c7';
     var link = '';
@@ -527,8 +587,16 @@
 
   var LEVELS = { 1: 'Империя, союз', 2: 'Государство', 3: 'Регион', 4: 'Область, провинция' };
 
-  function statePopupHtml(p) {
-    var name = p.name_ru || p.name || 'Без названия';
+  function stateDetailLink(entity) {
+    if (!entity || !entity.path) return '';
+    var href = String(entity.path).split('/').map(function (part) {
+      return encodeURIComponent(part);
+    }).join('/');
+    return '<a class="pop-more-link" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">Подробнее</a>';
+  }
+
+  function statePopupHtml(p, entity, includeDetails) {
+    var name = entity && entity.name || p.name_ru || p.name || 'Без названия';
     var s = fmtDate(p.start_date);
     var e = fmtDate(p.end_date);
     var dates = (s || '…') + ' — ' + (e || 'по настоящее время');
@@ -541,6 +609,7 @@
     if (p.disputed && p.disputed !== 'no') {
       html += '<div class="pop-disputed">Граница оспаривается</div>';
     }
+    if (includeDetails && entity && entity.path) html += stateDetailLink(entity);
     html += '</div>';
     return html;
   }
@@ -655,7 +724,26 @@
       map.on('mouseleave', id, function () { map.getCanvas().style.cursor = ''; });
     });
 
+    // Наведение показывает только временный tooltip: оно не меняет выбор таблицы.
+    map.on('mousemove', function (e) {
+      try {
+        var hoverLayers = existingLayers([
+          'fill-empires', 'fill-countries', 'fill-regions',
+          'borders-empires', 'borders-countries', 'borders-regions'
+        ]);
+        var features = hoverLayers.length
+          ? map.queryRenderedFeatures(e.point, { layers: hoverLayers }) : [];
+        if (!features.length) { hideStateHoverPopup(); return; }
+        var feature = features[0], props = feature.properties || {};
+        var entity = window.CHRONO_LINK
+          ? window.CHRONO_LINK.findEntity(props.name_ru || props.name, state.year) : null;
+        showStateHover(feature, e.lngLat, entity);
+      } catch (err) { hideStateHoverPopup(); }
+    });
+    map.on('mouseout', hideStateHoverPopup);
+
     map.on('click', function (e) {
+      hideStateHoverPopup();
       try {
         // 1. события
         var evLayers = existingLayers(['events-dots']);
@@ -668,20 +756,15 @@
                      'borders-empires', 'borders-countries', 'borders-regions'];
         var fs = map.queryRenderedFeatures(e.point, { layers: existingLayers(order) });
         if (fs.length) {
-          var sp = fs[0].properties;
-          var shtml = statePopupHtml(sp);
-          if (window.CHRONO_LINK) {
-            var ent = window.CHRONO_LINK.findEntity(sp.name_ru || sp.name);
-            if (ent) {
-              window.CHRONO_LINK.selectEntity(ent.id);
-              shtml += linkBtn('entity', ent.id, 'в ленту: ' + ent.name);
-            }
+          var feature = fs[0];
+          var sp = feature.properties || {};
+          var ent = window.CHRONO_LINK
+            ? window.CHRONO_LINK.findEntity(sp.name_ru || sp.name, state.year) : null;
+          if (ent && window.CHRONO_LINK) {
+            // Фокус меняется только в таблице: масштаб и центр карты остаются прежними.
+            window.CHRONO_LINK.selectEntity(ent.id, state.year);
           }
-          var popup2 = new maplibregl.Popup({ maxWidth: '280px', offset: 8 })
-            .setLngLat(e.lngLat)
-            .setHTML(shtml)
-            .addTo(map);
-          wirePopupLinks(popup2);
+          showStatePopup(feature, ent, e.lngLat);
         }
       } catch (err) { console.warn('click:', err); }
     });
@@ -1160,6 +1243,8 @@
     get filteredYear() { return lastFilteredYear; },
     get filterError() { return lastFilterError; },
     get colorKey() { return lastColorKey; },
+    showStatePopup: showStatePopup,
+    closeStatePopup: closeStateClickPopup,
     refreshColors: refreshFillColors
   };
 

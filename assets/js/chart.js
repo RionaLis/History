@@ -36,7 +36,8 @@ export class Chart {
     this.ctx = canvas.getContext('2d');
     this.data = data;
     this.scale = new TimeScale(data.scaleAnchors, 'poster');
-    this.minVisibleYears = 50;
+    this.minVisibleYears = 10;
+    this.maxVisibleYears = 6000;
     this.maxZoom = 1;
     const defaultRange = data.meta?.defaultRange || [-4000, 2000];
     const defaultU0 = this.scale.unit(defaultRange[0]);
@@ -86,15 +87,13 @@ export class Chart {
     this.syncStageHeight();
   }
 
-  /** На главной: обзор показывает все дорожки; при вертикальном зуме — окно прокрутки. */
+  /** На главной таблица живёт в обозримом окне; строки прокручиваются внутри полотна. */
   syncStageHeight() {
     if (!this.autoHeight) return;
     const stage = this.canvas.closest('.stage');
     if (!stage) return;
-    const height = this.verticalScale > 1.001
-      ? Math.max(360, Math.round(window.innerHeight * 0.72))
-      : Math.ceil(this.plotY() + this.lanesLayout.height + 1);
-    stage.style.height = `${Math.max(300, height)}px`;
+    const height = Math.max(360, Math.round(window.innerHeight * 0.72));
+    stage.style.height = `${height}px`;
   }
 
   zoomLimitAt(year) {
@@ -128,10 +127,6 @@ export class Chart {
   }
 
   setRowUnit(v) { this.rowUnit = v; this.verticalScale = v / this.baseRowUnit; this.fitRows = false; this.rebuild(); this.clampView(); this.draw(); }
-  setStateGamma(v) {
-    this.stateGamma = Math.max(0.4, Math.min(1, Number(v) || 0.4));
-    this.rebuild(); this.clampView(); this.draw();
-  }
 
   fitRowsToView() {
     const regions = this.data.regions.filter(r => this.filters.regions.has(r.id));
@@ -161,23 +156,52 @@ export class Chart {
 
   clampView() {
     const v = this.view;
-    v.k = Math.max(1, v.k);
-    v.ux = Math.max(0, Math.min(1 - 1 / v.k, v.ux));
-    // Ограничение зависит от участка постерной шкалы: одинаковый zoom-factor
-    // соответствует разному числу календарных лет в разных эпохах.
-    for (let i = 0; i < 2; i++) {
-      const centerYear = this.scale.year(v.ux + 0.5 / v.k);
-      this.maxZoom = this.zoomLimitAt(centerYear);
-      if (v.k <= this.maxZoom) break;
-      v.k = this.maxZoom;
-      v.ux = Math.max(0, Math.min(1 - 1 / v.k, v.ux));
+    v.k = Math.max(1, Number(v.k) || 1);
+    v.ux = Math.max(0, Math.min(1 - 1 / v.k, Number(v.ux) || 0));
+
+    // Keep the visible calendar window inside the promised 10–6000 year range,
+    // even though the poster projection is non-linear.
+    const [a, b] = this.visibleYears();
+    const totalYears = this.scale.yearMax - this.scale.yearMin;
+    const minSpan = Math.min(this.minVisibleYears, totalYears);
+    const maxSpan = Math.min(this.maxVisibleYears, totalYears);
+    const span = b - a;
+    if (span < minSpan - 1e-6 || span > maxSpan + 1e-6) {
+      const target = Math.max(minSpan, Math.min(maxSpan, span));
+      const center = (a + b) / 2;
+      this._setYearWindow(center - target / 2, center + target / 2);
     }
+
+    const centerYear = (this.visibleYears()[0] + this.visibleYears()[1]) / 2;
+    this.maxZoom = this.zoomLimitAt(centerYear);
     const maxVy = Math.max(0, this.lanesLayout.height - this.plotH());
-    v.vy = Math.max(0, Math.min(maxVy, v.vy));
+    v.vy = Math.max(0, Math.min(maxVy, Number(v.vy) || 0));
   }
 
   visibleYears() {
     return [this.yearOf(this.plotX()), this.yearOf(this.plotX() + this.plotW())];
+  }
+
+  /** Установить точные календарные границы окна, сохранив проекцию. */
+  _setYearWindow(start, end) {
+    const totalYears = this.scale.yearMax - this.scale.yearMin;
+    const minSpan = Math.min(this.minVisibleYears, totalYears);
+    const maxSpan = Math.min(this.maxVisibleYears, totalYears);
+    let span = Number(end) - Number(start);
+    if (!Number.isFinite(span) || span <= 0) span = maxSpan;
+    span = Math.max(minSpan, Math.min(maxSpan, span));
+    const y0 = Math.max(this.scale.yearMin, Math.min(this.scale.yearMax - span, Number(start)));
+    const y1 = y0 + span;
+    const u0 = this.scale.unit(y0), u1 = this.scale.unit(y1);
+    this.view.k = 1 / Math.max(1e-12, u1 - u0);
+    this.view.ux = u0;
+    return [y0, y1];
+  }
+
+  _finishView(source = 'programmatic') {
+    this.clampView();
+    this.draw();
+    this.onView(this, source);
   }
 
   _dateMarkerX() {
@@ -186,7 +210,10 @@ export class Chart {
   }
   _isDateMarkerAt(x, y) {
     const markerX = this._dateMarkerX();
-    return markerX !== null && y >= this.plotY() && y <= this.plotY() + this.plotH() && Math.abs(x - markerX) <= 8;
+    if (markerX === null || markerX < this.plotX() - 1 || markerX > this.plotX() + this.plotW() + 1) return false;
+    const onLine = y >= this.plotY() && y <= this.plotY() + this.plotH() && Math.abs(x - markerX) <= 5;
+    const onHandle = y >= this.plotY() - 12 && y <= this.plotY() + 14 && Math.abs(x - markerX) <= 12;
+    return onLine || onHandle;
   }
 
   /** Сменить проекцию, не меняя видимые крайние даты. */
@@ -194,57 +221,142 @@ export class Chart {
     if (this.scale.mode === mode) return;
     const [yearA, yearB] = this.visibleYears();
     this.scale.setMode(mode);
-    const u0 = this.scale.unit(yearA), u1 = this.scale.unit(yearB);
-    this.view.k = 1 / Math.max(1e-12, u1 - u0);
-    this.view.ux = u0;
-    this.clampView();
-    this.draw();
-    this.onView(this, source);
+    this._setYearWindow(yearA, yearB);
+    this._finishView(source);
   }
 
-  /** Подобрать масштаб так, чтобы на экране было ~span лет вокруг центра. */
+  /** Показать заданное число календарных лет вокруг выбранной даты. */
   setVisibleSpan(span, center, source = 'programmatic') {
     const [a, b] = this.visibleYears();
-    const c = center ?? (a + b) / 2;
-    const y0 = Math.max(this.scale.yearMin, c - span / 2);
-    const y1 = Math.min(this.scale.yearMax, y0 + span);
-    const du = Math.max(1e-6, this.scale.unit(y1) - this.scale.unit(y0));
-    this.view.k = 1 / du;
-    // левый край окна — точно в y0: на нелинейной шкале unit(центр) ≠ середины
-    // unit-окна, и «центровка по середине» уводила рамку в плотный участок.
-    this.view.ux = this.scale.unit(y0);
-    this.clampView();
+    const c = Number.isFinite(Number(center)) ? Number(center) : (a + b) / 2;
+    const boundedSpan = Math.max(Math.min(this.minVisibleYears, this.scale.yearMax - this.scale.yearMin),
+      Math.min(Math.min(this.maxVisibleYears, this.scale.yearMax - this.scale.yearMin), Number(span) || this.maxVisibleYears));
+    this._setYearWindow(c - boundedSpan / 2, c + boundedSpan / 2);
+    this._finishView(source);
+  }
+
+  /**
+   * Сфокусировать таблицу на государстве: его лента занимает заданную долю
+   * ширины, выбранный временной участок центрируется, а дорожка — по высоте.
+   * Это специальный режим фокуса и он может быть уже обычного минимума зума.
+   */
+  focusEntity(id, year = null, options = {}) {
+    const entity = this.entityById.get(id);
+    if (!entity) return false;
+
+    const width = Math.max(0.1, Math.min(0.95, Number(options.width) || 0.75));
+    const requestedScale = Number(options.verticalScale) || 3;
+    const rawStart = Number(entity.start), rawEnd = Number(entity.end);
+    const y0 = Math.max(this.scale.yearMin, Math.min(this.scale.yearMax, Math.min(rawStart, rawEnd)));
+    const y1 = Math.max(this.scale.yearMin, Math.min(this.scale.yearMax, Math.max(rawStart, rawEnd)));
+    let u0 = this.scale.unit(y0), u1 = this.scale.unit(y1);
+    const targetYear = year != null && Number.isFinite(Number(year))
+      ? Math.max(y0, Math.min(y1, Number(year))) : (y0 + y1) / 2;
+
+    // Однолетние объекты получают ненулевой видимый диапазон.
+    if (!(u1 > u0)) {
+      const half = 0.5;
+      u0 = this.scale.unit(Math.max(this.scale.yearMin, targetYear - half));
+      u1 = this.scale.unit(Math.min(this.scale.yearMax, targetYear + half));
+    }
+    if (!(u1 > u0)) {
+      u0 = Math.max(0, this.scale.unit(targetYear) - 1e-6);
+      u1 = Math.min(1, u0 + 2e-6);
+    }
+
+    this.selectedId = id;
+    this.setVerticalScale(requestedScale);
+
+    const unitSpan = Math.min(1, Math.max(1e-8, (u1 - u0) / width));
+    const centerU = (u0 + u1) / 2;
+    this.view.k = 1 / unitSpan;
+    this.view.ux = Math.max(0, Math.min(1 - unitSpan, centerU - unitSpan / 2));
+
+    // Центрируем выбранную ленту по вертикали, а не только её регион.
+    const spans = (entity.spans || []).filter(s => s.points && s.points.length);
+    const activeSpan = spans.find(s => targetYear >= s.points[0][0] && targetYear <= s.points[s.points.length - 1][0]) || spans[0];
+    const lane = activeSpan && this.lanesLayout.byId.get(activeSpan.lane);
+    if (lane) {
+      let centerY = lane.y + lane.h / 2;
+      const strip = (this.strips.get(activeSpan.lane) || []).find(s => s.entity.id === id);
+      if (strip && strip.runs.length) {
+        let best = null, bestDistance = Infinity;
+        for (const run of strip.runs) {
+          const y = Math.max(run[0][0], Math.min(run[run.length - 1][0], targetYear));
+          const distance = Math.abs(y - targetYear);
+          if (distance >= bestDistance) continue;
+          bestDistance = distance;
+          for (let i = 1; i < run.length; i++) {
+            if (y <= run[i][0] || i === run.length - 1) {
+              const a = run[i - 1], b = run[i];
+              const f = b[0] === a[0] ? 0 : (y - a[0]) / (b[0] - a[0]);
+              best = [a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+              break;
+            }
+          }
+        }
+        if (best) centerY = lane.y + (best[0] + best[1]) * 0.5 * lane.h;
+      }
+      const maxVy = Math.max(0, this.lanesLayout.height - this.plotH());
+      this.view.vy = Math.max(0, Math.min(maxVy, centerY - this.plotH() / 2));
+    }
+
+    this.maxZoom = this.zoomLimitAt(targetYear);
     this.draw();
-    this.onView(this, source);
+    this.onView(this, 'focus');
+    return true;
+  }
+
+  /** Зум вокруг точки на полотне: год под указателем остаётся под указателем. */
+  setVisibleSpanAt(span, anchorYear, fraction, source = 'programmatic') {
+    const totalYears = this.scale.yearMax - this.scale.yearMin;
+    const minSpan = Math.min(this.minVisibleYears, totalYears);
+    const maxSpan = Math.min(this.maxVisibleYears, totalYears);
+    const boundedSpan = Math.max(minSpan, Math.min(maxSpan, Number(span) || maxSpan));
+    const f = Math.max(0, Math.min(1, Number(fraction) || 0));
+    const anchor = Number.isFinite(Number(anchorYear)) ? Number(anchorYear) : (this.visibleYears()[0] + this.visibleYears()[1]) / 2;
+    this._setYearWindow(anchor - boundedSpan * f, anchor + boundedSpan * (1 - f));
+    this._finishView(source);
   }
 
   centerOn(year, source = 'programmatic') {
-    const u = this.scale.unit(year);
-    this.view.ux = u - 0.5 / this.view.k;
-    this.clampView();
-    this.draw();
-    this.onView(this, source);
+    const [a, b] = this.visibleYears();
+    this.setVisibleSpan(b - a, year, source);
   }
 
   zoomAt(px, factor, source = 'programmatic') {
-    const uAt = (px - this.plotX()) / this.contentW() + this.view.ux;
-    this.view.k *= factor;
-    this.clampView();
-    this.view.ux = uAt - (px - this.plotX()) / this.contentW();
-    this.clampView();
-    this.draw();
-    this.onView(this, source);
+    const x = Math.max(this.plotX(), Math.min(this.plotX() + this.plotW(), Number(px) || this.plotX()));
+    const [a, b] = this.visibleYears();
+    const fraction = (x - this.plotX()) / this.plotW();
+    const span = (b - a) / Math.max(0.01, Number(factor) || 1);
+    this.setVisibleSpanAt(span, this.yearOf(x), fraction, source);
+  }
+
+  panByPixels(dx, dy, origin = null, source = 'pan') {
+    const [a, b] = origin?.years || this.visibleYears();
+    const span = b - a;
+    const startVy = origin?.vy ?? this.view.vy;
+    const startX = a - (Number(dx) || 0) / this.plotW() * span;
+    this._setYearWindow(startX, startX + span);
+    this.view.vy = startVy - (Number(dy) || 0);
+    this._finishView(source);
+  }
+
+  panByScroll(dx, dy, source = 'pan') {
+    const [a, b] = this.visibleYears();
+    const span = b - a;
+    const startX = a + (Number(dx) || 0) / this.plotW() * span;
+    this._setYearWindow(startX, startX + span);
+    this.view.vy += Number(dy) || 0;
+    this._finishView(source);
   }
 
   zoomToRange(y0, y1, padFrac = 0.12, source = 'programmatic') {
-    const u0 = this.scale.unit(y0), u1 = this.scale.unit(y1);
-    const du = Math.max(1e-5, (u1 - u0) * (1 + padFrac * 2));
-    this.view.k = 1 / du;
-    this.clampView();
-    this.view.ux = Math.max(0, u0 - (u1 - u0) * padFrac);
-    this.clampView();
-    this.draw();
-    this.onView(this, source);
+    const low = Math.max(this.scale.yearMin, Math.min(Number(y0), Number(y1)));
+    const high = Math.min(this.scale.yearMax, Math.max(Number(y0), Number(y1)));
+    const pad = Math.max(0, Number(padFrac) || 0);
+    const span = Math.max(this.minVisibleYears, (high - low) * (1 + pad * 2));
+    this.setVisibleSpan(span, (low + high) / 2, source);
   }
 
   scrollToLane(laneId) {
@@ -303,8 +415,11 @@ export class Chart {
     // засечка на оси дат
     ctx.fillStyle = '#d13b3b';
     ctx.beginPath();
-    ctx.moveTo(x - 5, py - 9); ctx.lineTo(x + 5, py - 9); ctx.lineTo(x, py - 1);
+    ctx.moveTo(x - 6, py - 9); ctx.lineTo(x + 6, py - 9); ctx.lineTo(x, py - 1);
     ctx.closePath(); ctx.fill();
+    // Чёткая «ручка» показывает место, за которое можно ухватить красную дату.
+    ctx.beginPath(); ctx.arc(x, py + 3, 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
     ctx.restore();
   }
 
@@ -1058,15 +1173,19 @@ export class Chart {
   _bindEvents() {
     const c = this.canvas;
     let drag = null;
-    let lastMoved = 0;   // сколько пикселей прошли до отпускания кнопки (пан ≠ выбор)
+    let suppressClick = false;
 
     c.addEventListener('mousedown', ev => {
+      if (ev.button !== 0) return;
       const r = c.getBoundingClientRect();
       const px = ev.clientX - r.left, py = ev.clientY - r.top;
-      drag = this._isDateMarkerAt(px, py)
+      const onDate = this._isDateMarkerAt(px, py);
+      drag = onDate
         ? { mode: 'date', x: ev.clientX, y: ev.clientY, moved: 0 }
-        : { mode: 'pan', x: ev.clientX, y: ev.clientY, ux: this.view.ux, vy: this.view.vy, moved: 0 };
+        : { mode: 'pan', x: ev.clientX, y: ev.clientY, moved: 0,
+            origin: { years: this.visibleYears(), vy: this.view.vy } };
       c.classList.add('dragging');
+      c.style.cursor = onDate ? 'ew-resize' : 'grabbing';
     });
 
     window.addEventListener('mousemove', ev => {
@@ -1079,31 +1198,34 @@ export class Chart {
           const px = Math.max(this.plotX(), Math.min(this.plotX() + this.plotW(), mx));
           this.onDateChange(Math.round(this.yearOf(px)));
           this.draw();
+          c.style.cursor = 'ew-resize';
         } else {
-          this.view.ux = drag.ux - dx / this.contentW();
-          this.view.vy = drag.vy - dy;
-          this.clampView();
-          this.draw();
-          this.onView(this, 'pan');
+          this.panByPixels(dx, dy, drag.origin, 'pan');
+          c.style.cursor = 'grabbing';
         }
         return;
       }
       if (mx < 0 || my < 0 || mx > r.width || my > r.height) { this._setHover(null, ev); return; }
-      const hit = this.hitTest(mx, my);
+      const onDate = this._isDateMarkerAt(mx, my);
+      const hit = onDate ? null : this.hitTest(mx, my);
       this._setHover(hit, ev);
-      if (this._isDateMarkerAt(mx, my)) c.style.cursor = 'ew-resize';
+      if (onDate) c.style.cursor = 'ew-resize';
     });
 
     window.addEventListener('mouseup', () => {
-      if (drag) c.classList.remove('dragging');
-      lastMoved = drag ? drag.moved : 0;
+      if (!drag) return;
+      c.classList.remove('dragging');
+      suppressClick = drag.mode === 'date' || drag.moved > 5;
+      if (suppressClick) setTimeout(() => { suppressClick = false; }, 0);
       drag = null;
+      c.style.cursor = '';
     });
 
     c.addEventListener('click', ev => {
-      if (lastMoved > 5) { lastMoved = 0; return; }   // это был пан полотна, а не щелчок по объекту
       const r = c.getBoundingClientRect();
-      const hit = this.hitTest(ev.clientX - r.left, ev.clientY - r.top);
+      const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      if (suppressClick || this._isDateMarkerAt(mx, my)) { suppressClick = false; return; }
+      const hit = this.hitTest(mx, my);
       if (hit && ['entity', 'event', 'migration', 'lane', 'era'].includes(hit.kind)) {
         this.selectedId = hit.kind === 'entity' ? hit.id : this.selectedId;
         this.onSelect(hit);
@@ -1113,14 +1235,15 @@ export class Chart {
 
     c.addEventListener('dblclick', ev => {
       const r = c.getBoundingClientRect();
-      const hit = this.hitTest(ev.clientX - r.left, ev.clientY - r.top);
+      const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      if (this._isDateMarkerAt(mx, my)) return;
+      const hit = this.hitTest(mx, my);
       if (hit && hit.kind === 'entity') this.zoomToRange(hit.obj.start, hit.obj.end, 0.25, 'zoom');
       else if (hit && hit.kind === 'era') this.zoomToRange(hit.obj.start, hit.obj.end, 0.05, 'zoom');
     });
 
-    // Колесо и тачпад: в полноэкранной таблице обычная прокрутка двигает
-    // полотно; на главной, где видны все строки, вертикальная прокрутка
-    // остаётся странице, а Ctrl/⌘+колесо по-прежнему меняют масштаб времени.
+    // Любая обычная прокрутка двигает окно таблицы, не дату на карте.
+    // Ctrl/⌘+колесо и жест «щипок» приближают именно участок под указателем.
     c.addEventListener('wheel', ev => {
       const r = c.getBoundingClientRect();
       const mx = ev.clientX - r.left;
@@ -1128,63 +1251,51 @@ export class Chart {
       const dx = ev.deltaX * unit, dy = ev.deltaY * unit;
       if (ev.ctrlKey || ev.metaKey || ev.altKey) {
         ev.preventDefault();
-        // щипок тачпада браузер присылает как wheel с ctrlKey
         const soft = (ev.ctrlKey || ev.metaKey) && !ev.altKey ? 0.42 : 1;
-        const f = Math.pow(1.0038, -dy * soft);
-        this.zoomAt(Math.max(this.plotX(), mx), f, 'zoom');
-        return;
-      }
-      if (this.autoHeight && !ev.shiftKey) {
-        // Трекпад может передать горизонтальную составляющую одновременно
-        // с вертикальной: сдвигаем годы, но не блокируем прокрутку страницы.
-        if (dx) {
-          this.view.ux += dx / this.contentW();
-          this.clampView(); this.draw(); this.onView(this, 'pan');
-        }
+        const factor = Math.pow(1.0038, -dy * soft);
+        this.zoomAt(Math.max(this.plotX(), Math.min(this.plotX() + this.plotW(), mx)), factor, 'zoom');
         return;
       }
       ev.preventDefault();
-      if (ev.shiftKey) {            // привычная горизонтальная прокрутка
-        this.view.ux += (dx + dy) / this.contentW();
-      } else {
-        this.view.vy += dy;
-        this.view.ux += dx / this.contentW();
-      }
-      this.clampView(); this.draw(); this.onView(this, 'pan');
+      const scrollX = ev.shiftKey && !dx ? dy : dx;
+      const scrollY = ev.shiftKey && !dx ? 0 : dy;
+      this.panByScroll(scrollX, scrollY, 'pan');
     }, { passive: false });
 
     c.addEventListener('mouseleave', () => this._setHover(null, null));
 
-    // touch: перетаскивание и щипок
+    // Сенсорный ввод: один палец двигает таблицу (или красную метку),
+    // два пальца масштабируют участок под серединой жеста.
     let touch = null;
     c.addEventListener('touchstart', ev => {
       const r = c.getBoundingClientRect();
       if (ev.touches.length === 1) {
-        const px = ev.touches[0].clientX - r.left, py = ev.touches[0].clientY - r.top;
-        touch = this._isDateMarkerAt(px, py)
-          ? { mode: 'date', x: ev.touches[0].clientX, y: ev.touches[0].clientY }
-          : { mode: 'pan', x: ev.touches[0].clientX, y: ev.touches[0].clientY,
-              ux: this.view.ux, vy: this.view.vy };
+        const p = ev.touches[0];
+        const px = p.clientX - r.left, py = p.clientY - r.top;
+        const onDate = this._isDateMarkerAt(px, py);
+        touch = onDate
+          ? { mode: 'date', x: p.clientX, y: p.clientY, moved: 0 }
+          : { mode: 'pan', x: p.clientX, y: p.clientY, moved: 0,
+              origin: { years: this.visibleYears(), vy: this.view.vy } };
       } else if (ev.touches.length === 2) {
-        const d = Math.hypot(ev.touches[0].clientX - ev.touches[1].clientX,
-                             ev.touches[0].clientY - ev.touches[1].clientY);
-        touch = { mode: 'zoom', d, k: this.view.k,
-                  cx: (ev.touches[0].clientX + ev.touches[1].clientX) / 2 - r.left };
+        const t0 = ev.touches[0], t1 = ev.touches[1];
+        const d = Math.max(1, Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY));
+        const cx = (t0.clientX + t1.clientX) / 2 - r.left;
+        const anchorX = Math.max(this.plotX(), Math.min(this.plotX() + this.plotW(), cx));
+        const years = this.visibleYears();
+        touch = { mode: 'zoom', d, span: years[1] - years[0], moved: 0,
+          anchorYear: this.yearOf(anchorX) };
       }
     }, { passive: true });
+
     c.addEventListener('touchmove', ev => {
       if (!touch) return;
-      if (this.autoHeight && touch.mode === 'pan' && ev.touches.length === 1) {
-        const dx = ev.touches[0].clientX - touch.x, dy = ev.touches[0].clientY - touch.y;
-        // Вертикальный свайп прокручивает страницу; горизонтальный двигает шкалу.
-        if (Math.abs(dx) > Math.abs(dy) * 1.2) {
-          ev.preventDefault();
-          this.view.ux = touch.ux - dx / this.contentW();
-          this.clampView(); this.draw(); this.onView(this, 'pan');
-        }
-        return;
-      }
       ev.preventDefault();
+      if (touch.mode === 'zoom') touch.moved = 6;
+      else if (ev.touches.length === 1) {
+        const p = ev.touches[0];
+        touch.moved = Math.max(touch.moved || 0, Math.abs(p.clientX - touch.x) + Math.abs(p.clientY - touch.y));
+      }
       if (touch.mode === 'date' && ev.touches.length === 1) {
         const r = c.getBoundingClientRect();
         const px = Math.max(this.plotX(), Math.min(this.plotX() + this.plotW(), ev.touches[0].clientX - r.left));
@@ -1192,17 +1303,25 @@ export class Chart {
         this.draw();
       } else if (touch.mode === 'pan' && ev.touches.length === 1) {
         const dx = ev.touches[0].clientX - touch.x, dy = ev.touches[0].clientY - touch.y;
-        this.view.ux = touch.ux - dx / this.contentW();
-        this.view.vy = touch.vy - dy;
-        this.clampView(); this.draw(); this.onView(this, 'pan');
+        this.panByPixels(dx, dy, touch.origin, 'pan');
       } else if (touch.mode === 'zoom' && ev.touches.length === 2) {
-        const d = Math.hypot(ev.touches[0].clientX - ev.touches[1].clientX,
-                             ev.touches[0].clientY - ev.touches[1].clientY);
-        const target = touch.k * (d / touch.d);
-        this.zoomAt(touch.cx, target / this.view.k, 'zoom');
+        const r = c.getBoundingClientRect();
+        const t0 = ev.touches[0], t1 = ev.touches[1];
+        const d = Math.max(1, Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY));
+        const cx = (t0.clientX + t1.clientX) / 2 - r.left;
+        const fraction = Math.max(0, Math.min(1, (cx - this.plotX()) / this.plotW()));
+        this.setVisibleSpanAt(touch.span * touch.d / d, touch.anchorYear, fraction, 'zoom');
       }
     }, { passive: false });
-    c.addEventListener('touchend', () => { touch = null; }, { passive: true });
+    const finishTouch = () => {
+      if (touch && (touch.mode === 'date' || touch.mode === 'zoom' || touch.moved > 5)) {
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 0);
+      }
+      touch = null;
+    };
+    c.addEventListener('touchend', finishTouch, { passive: true });
+    c.addEventListener('touchcancel', finishTouch, { passive: true });
 
     window.addEventListener('resize', () => {
       this.syncStageHeight();

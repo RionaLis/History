@@ -74,16 +74,15 @@ function boot() {
   idx = nearestIdx(window.chronomap.state.year);
 
   window.CHRONO_LINK = {
-    findEntity: name => findEntity(name),
+    findEntity: (name, year) => findEntity(name, year),
     findEvent: title => findEvent(title),
     openItem: (kind, id) => openItem(kind, id),
-    highlightEntity: id => flyToEntity(id, true),
-    selectEntity: id => {
-      if (!DATA.entities.some(e => e.id === id)) return;
-      chart.selectedId = id;
-      chart.draw();
-      flyToEntity(id, true);
-    },
+    highlightEntity: id => flyToEntity(id, true, { popup: true }),
+    // Карта → таблица: фокусируем полосу, не перемещая и не масштабируя карту.
+    selectEntity: (id, year) => focusTableEntity(id, year),
+    // Таблица → карта: сохраняем масштаб таблицы, синхронизируем год карты,
+    // затем находим контур, приближаем его и открываем всплывающее окно.
+    selectEntityFromTable: (id, year) => selectEntityOnMapFromTable(id, year),
   };
   window.FEED = {
     go,
@@ -115,16 +114,13 @@ function boot() {
     } catch (e) { /* chart ещё не готов */ }
   });
 
-  // Только явный пользовательский пан таблицы меняет выбранный год.
-  // Зум сохраняет выбранную дату и, если надо, возвращает её в кадр.
+  // Панорамирование и локальный зум таблицы не меняют выбранный год на карте.
+  // Только переход к объекту (поиск/кнопка «на таблице») синхронизирует центр.
   window.addEventListener('chrono:tableview', e => {
     const detail = e.detail || {};
-    if (detail.source === 'pan' || detail.source === 'navigate') {
+    if (detail.source === 'navigate') {
       const y = Math.round(detail.center);
       if (y !== currentYear()) window.chronomap.setYear(y);
-    } else if (detail.source === 'zoom') {
-      const y = currentYear();
-      if (y < detail.start || y > detail.end) centerTable(y);
     }
   });
 
@@ -145,6 +141,82 @@ function boot() {
 }
 
 startWhenReady();
+
+function focusTableEntity(id, year) {
+  const entity = DATA && DATA.entities.find(e => e.id === id);
+  if (!entity || !chart) return false;
+  chart.selectedId = id;
+  chart.focusEntity(id, year, { width: 0.75, verticalScale: 3 });
+  return true;
+}
+
+let mapSelectionSequence = 0;
+function waitForMapIdle(map, callback, timeout = 2600) {
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    map.off('idle', finish);
+    callback();
+  };
+  const timer = setTimeout(finish, timeout);
+  map.once('idle', finish);
+}
+
+function selectEntityOnMapFromTable(id, year) {
+  const entity = DATA && DATA.entities.find(e => e.id === id);
+  const chrono = window.chronomap;
+  const map = chrono && chrono.map;
+  if (!entity || !map) return false;
+  if (!chrono.ready) {
+    const pending = ++mapSelectionSequence;
+    map.once('load', () => {
+      if (pending === mapSelectionSequence) selectEntityOnMapFromTable(id, year);
+    });
+    return true;
+  }
+
+  const sequence = ++mapSelectionSequence;
+  const numericYear = Number(year);
+  const targetYear = Number.isFinite(numericYear) ? Math.round(numericYear) : null;
+  const needsYearChange = targetYear !== null && targetYear !== chrono.state.year;
+  if (needsYearChange) chrono.setYear(targetYear);
+  if (chrono.closeStatePopup) chrono.closeStatePopup();
+  clearHighlight();
+
+  const findAndFly = () => {
+    if (sequence !== mapSelectionSequence) return;
+    contourIndex = null;
+    contourTries = 0;
+    if (rebuildContourIndex() && flyToEntity(id, true, { popup: true })) return;
+
+    // Query source features only covers loaded tiles. A quick world zoom loads
+    // the country-boundary tiles even when the selected country was off-screen.
+    if (map.getZoom() > 0.6) {
+      waitForMapIdle(map, () => {
+        if (sequence !== mapSelectionSequence) return;
+        contourIndex = null;
+        contourTries = 0;
+        if (rebuildContourIndex()) flyToEntity(id, true, { popup: true });
+      }, 3200);
+      map.jumpTo({ center: [0, 20], zoom: 0.5 });
+      return;
+    }
+
+    // At world zoom, give remote vector tiles one idle cycle to arrive.
+    waitForMapIdle(map, () => {
+      if (sequence !== mapSelectionSequence) return;
+      contourIndex = null;
+      contourTries = 0;
+      if (rebuildContourIndex()) flyToEntity(id, true, { popup: true });
+    }, 1800);
+  };
+
+  if (needsYearChange) waitForMapIdle(map, findAndFly);
+  else findAndFly();
+  return true;
+}
 
 /* ---------------------------------------------------------- даты */
 
@@ -340,7 +412,10 @@ const norm = s => String(s == null ? '' : s)
   .replace(/\s+/g, ' ').trim();
 
 function nameKeys(entity) {
-  return [norm(entity.name), ...(entity.aliases || []).map(norm)].filter(k => k.length > 2);
+  return [
+    norm(entity.name), norm(entity.label), norm(entity.nameOhm),
+    ...(entity.aliases || []).map(norm),
+  ].filter(k => k.length > 2);
 }
 
 /** Похожи ли названия: точное равенство или одно — начало другого (достаточно длинное). */
@@ -352,10 +427,16 @@ function namesMatch(a, b) {
   return false;
 }
 
-function findEntity(contourName) {
+function findEntity(contourName, year) {
   const n = norm(contourName);
   if (!n) return null;
-  return DATA.entities.find(e => nameKeys(e).some(k => namesMatch(k, n))) || null;
+  const matches = DATA.entities.filter(e => nameKeys(e).some(k => namesMatch(k, n)));
+  const numericYear = Number(year);
+  if (Number.isFinite(numericYear)) {
+    const active = matches.find(e => e.start <= numericYear && e.end >= numericYear);
+    if (active) return active;
+  }
+  return matches[0] || null;
 }
 
 function findEvent(mapTitle) {
@@ -376,6 +457,7 @@ function rebuildContourIndex() {
   if (!layerIds.length) return false;
 
   const index = new Map();
+  const queriedSources = new Set();
   const add = f => {
     const name = f.properties && (f.properties.name_ru || f.properties.name);
     if (!name) return;
@@ -388,8 +470,15 @@ function rebuildContourIndex() {
   for (const id of layerIds) {
     try { map.queryRenderedFeatures({ layers: [id] }).forEach(add); } catch (e) {}
     try {
-      const srcId = map.getLayer(id).source;
-      if (srcId) map.querySourceFeatures(srcId).forEach(add);   // и за пределами экрана
+      const layer = map.getLayer(id);
+      const srcId = layer && layer.source;
+      const sourceLayer = layer && (layer.sourceLayer || layer['source-layer']);
+      const sourceKey = srcId + ':' + (sourceLayer || '');
+      if (srcId && !queriedSources.has(sourceKey)) {
+        queriedSources.add(sourceKey);
+        const params = sourceLayer ? { sourceLayer } : undefined;
+        map.querySourceFeatures(srcId, params).forEach(add);   // и за пределами экрана
+      }
     } catch (e) {}
   }
   if (!index.size) return false;   // тайлы ещё грузятся — попробуем позже
@@ -407,11 +496,25 @@ function updateRelations() {
   }
 }
 
+function featureYear(value) {
+  if (value != null && value !== '' && Number.isFinite(Number(value))) return Number(value);
+  const match = /^(-?\d+)/.exec(String(value == null ? '' : value));
+  return match ? Number(match[1]) : null;
+}
+
 function featuresFor(entity) {
   if (!contourIndex) return [];
   for (const k of nameKeys(entity)) {
     for (const [name, feats] of contourIndex) {
-      if (namesMatch(k, name)) return feats;
+      if (!namesMatch(k, name)) continue;
+      const year = currentYear();
+      const active = feats.filter(f => {
+        const props = f.properties || {};
+        const start = featureYear(props.start_date);
+        const end = featureYear(props.end_date);
+        return (start === null || year >= start) && (end === null || year <= end);
+      });
+      return active.length ? active : feats;
     }
   }
   return [];
@@ -423,28 +526,63 @@ function featuresByExactName(name) {
   return contourIndex.get(n) || [];
 }
 
+/** Минимальная дуга долготы вокруг геометрии (обрабатывает антимеридиан). */
+function longitudeBounds(values) {
+  if (!values.length) return null;
+  const xs = [...new Set(values.map(x => ((x % 360) + 360) % 360))].sort((a, b) => a - b);
+  if (xs.length === 1) return [xs[0], xs[0]];
+  let gap = -1, gapAt = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const next = i === xs.length - 1 ? xs[0] + 360 : xs[i + 1];
+    const size = next - xs[i];
+    if (size > gap) { gap = size; gapAt = i; }
+  }
+  let west = xs[(gapAt + 1) % xs.length];
+  let east = xs[gapAt];
+  if (east < west) east += 360;
+  while (west > 180) { west -= 360; east -= 360; }
+  while (west < -180) { west += 360; east += 360; }
+  return [west, east];
+}
+
 /** Перелёт к контуру сущности + подсветка. quiet — не дёргать ленту. */
-function flyToEntity(id, quiet) {
+function flyToEntity(id, quiet, options = {}) {
   const e = DATA.entities.find(x => x.id === id);
-  if (!e || !contourIndex && !rebuildContourIndex()) return;
+  if (!e || !contourIndex && !rebuildContourIndex()) return false;
   const feats = featuresFor(e);
-  if (!feats.length) return;
+  if (!feats.length) return false;
   showHighlight(feats);
 
-  // границы по всем версиям контура
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  // Границы выбранного временного контура; дуга долгот учитывает переход
+  // через 180°, иначе Россия и другие страны у антимеридиана ошибочно дают весь мир.
+  const longitudes = [];
+  let minY = Infinity, maxY = -Infinity;
   const walk = c => {
     if (typeof c[0] === 'number') {
-      minX = Math.min(minX, c[0]); maxX = Math.max(maxX, c[0]);
-      minY = Math.min(minY, c[1]); maxY = Math.max(maxY, c[1]);
+      longitudes.push(c[0]);
+      minY = Math.min(minY, c[1]);
+      maxY = Math.max(maxY, c[1]);
     } else c.forEach(walk);
   };
   feats.forEach(f => f.geometry && walk(f.geometry.coordinates));
 
-  if (minX === Infinity) return;
+  const lng = longitudeBounds(longitudes);
+  if (!lng || minY === Infinity) return false;
+  const [west, east] = lng;
   const map = window.chronomap.map;
-  map.fitBounds([[minX, minY], [maxX, maxY]],
-    { padding: { top: 70, bottom: 70, left: 70, right: 340 }, duration: 1500, maxZoom: 6.5, essential: true });
+  const bounds = [[west, minY], [east, maxY]];
+  const center = [(west + east) / 2, (minY + maxY) / 2];
+  let zoom = map.getZoom();
+  try {
+    const camera = map.cameraForBounds(bounds, { padding: 28, maxZoom: 6.5 });
+    if (camera && Number.isFinite(camera.zoom)) zoom = camera.zoom;
+  } catch (e) { /* если bounds не поддержаны проекцией — используем текущий зум */ }
+  zoom = Math.max(0.5, Math.min(6.5, zoom));
+  map.flyTo({ center, zoom, duration: 1500, essential: true });
+  if (options.popup && window.chronomap.showStatePopup) {
+    window.chronomap.showStatePopup(feats[0], e, center);
+  }
+  return true;
 }
 
 /* Подсветка контуров на карте */

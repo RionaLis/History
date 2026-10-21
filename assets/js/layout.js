@@ -51,7 +51,7 @@ function shareAt(points, year) {
  * @returns Map<entityId, {entity, runs: Array<Array<[year, top, bottom]>>}>
  * координаты top/bottom — доли высоты дорожки (0 сверху, 1 снизу).
  */
-export function stackLane(items, stateGamma = 0.65) {
+export function stackLane(items, stateGamma = 0.4) {
   // items: [{entity, points}]
   if (!items.length) return new Map();
   const ordered = items.slice().sort((a, b) => {
@@ -124,7 +124,7 @@ export function stackLane(items, stateGamma = 0.65) {
  * Полная раскладка лент по всем дорожкам.
  * @returns Map<laneId, Array<{entity, runs}>>
  */
-export function layoutEntities(entities, laneIds, stateGamma = 0.65) {
+export function layoutEntities(entities, laneIds, stateGamma = 0.4) {
   const perLane = new Map();
   for (const id of laneIds) perLane.set(id, []);
   for (const e of entities) {

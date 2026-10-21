@@ -113,7 +113,11 @@
   <section class="zone controls-zone" aria-label="Управление">
     <div id="quick-jumps" class="card" aria-label="Быстрые прыжки к эпохам и событиям"></div>
     <div id="timeline" class="card">
-      <div id="year-display" aria-live="polite">…</div>
+      <div class="year-stepper" aria-label="Выбранный год">
+        <button id="year-prev" class="year-step" type="button" title="На один год назад" aria-label="На один год назад">‹</button>
+        <div id="year-display" aria-live="polite">…</div>
+        <button id="year-next" class="year-step" type="button" title="На один год вперёд" aria-label="На один год вперёд">›</button>
+      </div>
       <form id="year-jump-form" class="year-jump-form" novalidate>
         <label for="year-input">Перейти к году</label>
         <div class="year-jump-controls">
@@ -139,47 +143,61 @@
   <section class="zone table-zone" aria-label="Синхронологическая таблица">
     <div class="zone-head">
       <b>Синхронологическая таблица</b>
-      <span class="zone-sub">государства: полупрозрачные потоки преемственности · щёлкните объект — откроется статья</span>
+      <span class="zone-sub">государства: полупрозрачные потоки преемственности · наведите для справки, щёлкните государство для показа на карте</span>
       <a class="zone-more" href="table.html">открыть на весь экран →</a>
     </div>
 
-    <div class="toolbar">
-      <div class="group">
-        <span class="lbl">Горизонтальный масштаб</span>
-        <button class="btn" id="zoomOut" title="Отдалить (Ctrl + колесо вниз)">−</button>
-        <input type="range" id="zoomRange" min="0" max="1000" value="0" title="Масштабировать вокруг выбранной даты на карте">
-        <button class="btn" id="zoomIn" title="Приблизить (Ctrl + колесо вверх)">+</button>
-        <span class="readout" id="spanOut">6000 лет на экране</span>
+    <div class="toolbar" aria-label="Масштаб и параметры синхронологической таблицы">
+      <div class="scale-stack" aria-label="Масштаб таблицы">
+        <div class="scale-row horizontal-scale">
+          <label class="scale-label" for="zoomRange">
+            <span>Горизонтальный масштаб</span>
+            <small>обычно 6000—10 лет; фокус государства может быть уже</small>
+          </label>
+          <button class="lens-btn" id="zoomOut" type="button" title="Отдалить вокруг выбранного года" aria-label="Отдалить таблицу">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.2"></circle><path d="m15.1 15.1 5 5M7.5 10.5h6"></path></svg>
+          </button>
+          <input type="range" id="zoomRange" min="0" max="1000" step="1" value="0" aria-label="Горизонтальный масштаб: от 6000 до 10 лет" title="6000 лет — общий обзор; 10 лет — максимальное приближение">
+          <button class="lens-btn" id="zoomIn" type="button" title="Приблизить вокруг выбранного года" aria-label="Приблизить таблицу">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.2"></circle><path d="m15.1 15.1 5 5M7.5 10.5h6M10.5 7.5v6"></path></svg>
+          </button>
+          <span class="readout" id="spanOut">6000 лет на экране</span>
+        </div>
+        <div class="scale-row vertical-scale">
+          <label class="scale-label" for="verticalRange">
+            <span>Вертикальный масштаб</span>
+            <small>высота строк</small>
+          </label>
+          <button class="scale-step" id="verticalZoomOut" type="button" title="Уменьшить высоту строк" aria-label="Уменьшить высоту строк">−</button>
+          <input type="range" id="verticalRange" min="0" max="1000" step="1" value="0" aria-label="Вертикальный масштаб: высота строк" title="Изменить высоту всех строк таблицы">
+          <button class="scale-step" id="verticalZoomIn" type="button" title="Увеличить высоту строк" aria-label="Увеличить высоту строк">+</button>
+          <span class="readout" id="verticalOut">×1</span>
+        </div>
       </div>
-      <div class="group">
-        <button class="btn chip" data-span="all">Вся история</button>
-        <button class="btn chip" data-span="2000">2000 лет</button>
-        <button class="btn chip" data-span="1000">1000 лет</button>
-        <button class="btn chip" data-span="500">500 лет</button>
-        <button class="btn chip" data-span="200">200 лет</button>
-      </div>
-      <div class="group">
-        <span class="lbl">Толщина государств</span>
-        <input type="range" id="thicknessRange" min="40" max="100" step="5" value="40" title="Нелинейность масштаба полос: левее — малые государства заметнее">
-        <span class="readout" id="thicknessOut">малые заметнее</span>
-      </div>
-      <div class="group">
-        <span class="lbl">Вертикальный масштаб</span>
-        <input type="range" id="verticalRange" min="0" max="1000" step="1" value="0" title="Увеличить высоту всех дорожек; максимум — одна дорожка на экране">
-        <span class="readout" id="verticalOut">×1</span>
-      </div>
-      <div class="group">
-        <button class="btn toggle" id="btnFilters">Фильтры</button>
-        <button class="btn toggle" id="btnLegend">Легенда</button>
-        <label class="switch"><input type="checkbox" id="chkLinear"> равномерная шкала</label>
-      </div>
-      <div class="group right">
-        <span class="hint">колесо — масштаб времени · тянуть полотно — сдвиг · тянуть красную метку — дата · 2 клика — вписать объект</span>
+      <div class="toolbar-options">
+        <div class="group presets">
+          <span class="lbl">Окно:</span>
+          <button class="btn chip" data-span="all">6000 лет</button>
+          <button class="btn chip" data-span="2000">2000</button>
+          <button class="btn chip" data-span="1000">1000</button>
+          <button class="btn chip" data-span="500">500</button>
+          <button class="btn chip" data-span="200">200</button>
+          <button class="btn chip" data-span="50">50</button>
+          <button class="btn chip" data-span="10">10</button>
+        </div>
+        <div class="group">
+          <button class="btn toggle" id="btnFilters" type="button">Фильтры</button>
+          <button class="btn toggle" id="btnLegend" type="button">Легенда</button>
+          <label class="switch"><input type="checkbox" id="chkLinear"> равномерная шкала</label>
+        </div>
+        <div class="group right">
+          <span class="hint">Колёсико — перемещение; Ctrl/щипок — зум у указателя; тянуть полотно — панорамирование без смены даты; тянуть красную метку — изменить год.</span>
+        </div>
       </div>
     </div>
 
     <div class="stage" id="stage">
-      <canvas id="chart" tabindex="0" role="application" aria-label="Интерактивная синхронологическая таблица. Стрелки перемещают шкалу времени, плюс и минус меняют масштаб."></canvas>
+      <canvas id="chart" tabindex="0" role="application" aria-label="Интерактивная синхронологическая таблица. Прокрутка и перетаскивание перемещают таблицу без смены даты. Масштабирование колесом с Ctrl или щипком выполняется у указателя. Перетаскивайте только красную метку, чтобы изменить год."></canvas>
       <div class="tooltip" id="tip" hidden></div>
 
       <div class="popover" id="filters" hidden>
@@ -211,11 +229,10 @@
             <p><b>По вертикали</b> — регионы мира и их суб-регионы (дорожки).<br>
                <b>По горизонтали</b> — время, слева направо.</p>
             <h4>Ленты</h4>
-            <p>Лента — народ, культура или государство. Для государств толщина опирается на долю площади,
-               но шкала нелинейная: малые государства увеличены, чтобы их можно было различить и подписать.
-               Ползунок «Толщина государств» меняет степень усиления. Государство, охватившее несколько
-               регионов, рисуется в каждом из них; полосы без геометрии отмечены как условные.</p>
-            <p>Наведите курсор — краткая справка, щёлкните — подробная статья.</p>
+            <p>Лента — народ, культура или государство. Для государств толщина опирается на долю площади;
+               минимальное нелинейное усиление малых государств оставлено, чтобы их можно было различить и подписать.
+               Государство, охватившее несколько регионов, рисуется в каждом из них; полосы без геометрии отмечены как условные.</p>
+            <p>Наведите курсор — краткая справка; щёлкните государство — выделить его и показать на карте.</p>
           </div>
           <div class="col">
             <h4>Эпохи</h4>

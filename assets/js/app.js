@@ -22,6 +22,7 @@ const KIND_LABEL = { migration: 'переселение', invasion: 'вторж�
 
 let DATA = null, chart = null;
 let densityCache = null, densityCacheMode = null, densityCacheEntities = null;
+let syncVerticalScaleControls = () => {};
 let minimapDrawFrame = 0, pendingTableViewFrame = 0, pendingTableView = null;
 let filterUpdateFrame = 0, filterNeedsRebuild = false, filterNeedsFit = false;
 
@@ -33,14 +34,15 @@ async function init() {
   window.DATA = DATA;
 
   chart = new Chart($('#chart'), DATA, {
-    // На главной таблица растёт вниз до последней дорожки; отдельная страница
-    // table.html остаётся в полноэкранном режиме с прокруткой внутри полотна.
+    // На главной таблица использует ограниченное окно просмотра с панорамированием внутри полотна.
     autoHeight: !!document.querySelector('.table-zone'),
     onHover: showTip,
     onSelect: hit => {
       if (hit.kind === 'entity') {
-        if (window.CHRONO_LINK) window.CHRONO_LINK.highlightEntity(hit.obj.id);
-        openDoc(hit.obj, 'entity');
+        // Выбор в таблице управляет картой, но не зумом самой таблицы.
+        if (window.CHRONO_LINK && window.CHRONO_LINK.selectEntityFromTable) {
+          window.CHRONO_LINK.selectEntityFromTable(hit.obj.id, hit.year);
+        }
       }
       else if (hit.kind === 'event') openDoc(hit.obj, 'event');
       else if (hit.kind === 'migration') openDoc(hit.obj, 'migration');
@@ -87,7 +89,7 @@ function showTip(hit, ev) {
     html = `<h5>${e.name}</h5>
       <div class="dates">${TYPE_LABEL[e.type] || e.type} · ${formatSpan(e.start, e.end)}</div>
       <p>${e.summary || ''}</p>
-      <div class="more">${regions.join(' · ')} — щёлкните для подробной статьи</div>`;
+      <div class="more">${regions.join(' · ')} — щёлкните, чтобы показать государство на карте</div>`;
   } else if (hit.kind === 'event') {
     const e = hit.obj;
     const when = e.yearEnd ? formatSpan(e.year, e.yearEnd) : formatYear(e.year);
@@ -118,54 +120,57 @@ function showTip(hit, ev) {
 /* ------------------------------------------------ тулбар */
 function wireToolbar() {
   const zr = $('#zoomRange');
-  const kToSlider = k => chart.maxZoom <= 1 ? 0 : Math.round(1000 * Math.log(k) / Math.log(chart.maxZoom));
-  const sliderToK = (v, center) => Math.pow(chart.zoomLimitAt(center), v / 1000);
-  zr.addEventListener('input', () => {
-    const selectedYear = window.chronomap?.state?.year;
-    const center = Number.isFinite(selectedYear)
-      ? selectedYear
-      : chart.yearOf(chart.plotX() + chart.plotW() / 2);
-    chart.view.k = sliderToK(+zr.value, center);
-    chart.centerOn(center, 'zoom');
-  });
-  $('#zoomIn').onclick = () => chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1.6, 'zoom');
-  $('#zoomOut').onclick = () => chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1 / 1.6, 'zoom');
-  document.querySelectorAll('[data-span]').forEach(b => {
-    b.onclick = () => {
-      const v = b.dataset.span;
-      if (v === 'all') { chart.view.k = 1; chart.view.ux = 0; chart.clampView(); chart.draw(); syncView(); }
-      else {
-        // рамка раскрывается ВОКРУГ выбранной даты карты (источник истины),
-        // а не вокруг центра прижатого к краю окна.
-        const [ca, cb] = chart.visibleYears();
-        const yC = (window.chronomap && window.chronomap.state) ? window.chronomap.state.year : (ca + cb) / 2;
-        chart.setVisibleSpan(+v, yC, 'zoom');
-      }
-      syncView();
+  const minSpan = Math.min(chart.minVisibleYears, chart.scale.yearMax - chart.scale.yearMin);
+  const maxSpan = Math.min(chart.maxVisibleYears, chart.scale.yearMax - chart.scale.yearMin);
+  const spanFromSlider = value => maxSpan * Math.pow(minSpan / maxSpan, Number(value) / 1000);
+  const spanToSlider = span => {
+    const safe = Math.max(minSpan, Math.min(maxSpan, Number(span) || maxSpan));
+    return maxSpan <= minSpan ? 0 : Math.round(1000 * Math.log(maxSpan / safe) / Math.log(maxSpan / minSpan));
+  };
+  const selectedYear = () => {
+    const year = window.chronomap?.state?.year;
+    if (Number.isFinite(year)) return year;
+    const [a, b] = chart.visibleYears();
+    return (a + b) / 2;
+  };
+  const zoomAroundDate = factor => {
+    const [a, b] = chart.visibleYears();
+    chart.setVisibleSpan((b - a) / factor, selectedYear(), 'zoom');
+  };
+
+  zr.addEventListener('input', () => chart.setVisibleSpan(spanFromSlider(zr.value), selectedYear(), 'zoom'));
+  $('#zoomIn').onclick = () => zoomAroundDate(1.6);
+  $('#zoomOut').onclick = () => zoomAroundDate(1 / 1.6);
+  document.querySelectorAll('[data-span]').forEach(button => {
+    button.onclick = () => {
+      const span = button.dataset.span === 'all' ? maxSpan : Number(button.dataset.span);
+      chart.setVisibleSpan(span, selectedYear(), 'zoom');
     };
   });
+
   const verticalRange = $('#verticalRange'), verticalOut = $('#verticalOut');
   const verticalMax = () => chart.verticalMaxScale();
-  const sliderToVertical = v => Math.exp(Math.log(verticalMax()) * (+v / 1000));
-  const verticalToSlider = v => verticalMax() <= 1 ? 0 : Math.round(1000 * Math.log(Math.max(1, v)) / Math.log(verticalMax()));
+  const sliderToVertical = value => Math.exp(Math.log(verticalMax()) * (Number(value) / 1000));
+  const verticalToSlider = value => verticalMax() <= 1 ? 0
+    : Math.round(1000 * Math.log(Math.max(1, value)) / Math.log(verticalMax()));
   const updateVerticalOut = () => {
     if (verticalOut) verticalOut.textContent = `×${chart.verticalScale.toFixed(1).replace('.', ',')}`;
     if (verticalRange) verticalRange.value = String(verticalToSlider(chart.verticalScale));
   };
+  syncVerticalScaleControls = updateVerticalOut;
   verticalRange.addEventListener('input', () => {
     chart.setVerticalScale(sliderToVertical(verticalRange.value));
     updateVerticalOut();
   });
-  const thicknessRange = $('#thicknessRange'), thicknessOut = $('#thicknessOut');
-  if (thicknessRange) {
-    const updateThickness = () => {
-      const gamma = +thicknessRange.value / 100;
-      chart.setStateGamma(gamma);
-      if (thicknessOut) thicknessOut.textContent = gamma <= 0.5 ? 'сильно нелинейно' : gamma < 0.8 ? 'малые заметнее' : 'почти площадь';
-    };
-    thicknessRange.addEventListener('input', updateThickness);
-    updateThickness();
-  }
+  $('#verticalZoomOut').onclick = () => {
+    chart.setVerticalScale(chart.verticalScale / 1.25);
+    updateVerticalOut();
+  };
+  $('#verticalZoomIn').onclick = () => {
+    chart.setVerticalScale(chart.verticalScale * 1.25);
+    updateVerticalOut();
+  };
+
   updateVerticalOut();
   window.addEventListener('resize', updateVerticalOut);
   $('#chkLinear').onchange = e => {
@@ -179,28 +184,25 @@ function wireToolbar() {
   };
   $('#btnFilters').onclick = e => togglePop('filters', e.currentTarget);
   $('#btnLegend').onclick = e => togglePop('legend', e.currentTarget);
-  document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => {
-    $('#' + b.dataset.close).hidden = true;
-    $('#btn' + b.dataset.close[0].toUpperCase() + b.dataset.close.slice(1)).classList.remove('on');
+  document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => {
+    $('#' + button.dataset.close).hidden = true;
+    $('#btn' + button.dataset.close[0].toUpperCase() + button.dataset.close.slice(1)).classList.remove('on');
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       $('#filters').hidden = true; $('#legend').hidden = true; $('#results').hidden = true;
       closePanel();
-      document.querySelectorAll('.btn.toggle').forEach(b => b.classList.remove('on'));
+      document.querySelectorAll('.btn.toggle').forEach(button => button.classList.remove('on'));
     }
-    // Горячие клавиши таблицы работают только при фокусе на её canvas:
-    // стрелки на кнопках и в полях ввода не должны сдвигать шкалу.
+    // На сфокусированной таблице стрелки панорамируют её, не меняя выбранный год.
     if (e.target !== $('#chart')) return;
-    const step = chart.plotW() * 0.25 / chart.contentW();
+    const delta = chart.plotW() * 0.25;
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       e.preventDefault();
-      chart.view.ux += e.key === 'ArrowRight' ? step : -step;
-      chart.clampView(); chart.draw(); syncView(chart, 'pan');
+      chart.panByScroll(e.key === 'ArrowRight' ? delta : -delta, 0, 'pan');
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      chart.view.vy += e.key === 'ArrowDown' ? 60 : -60;
-      chart.clampView(); chart.draw();
+      chart.panByScroll(0, e.key === 'ArrowDown' ? 60 : -60, 'pan');
     } else if (e.key === '+' || e.key === '=') {
       e.preventDefault();
       chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1.5, 'zoom');
@@ -209,8 +211,8 @@ function wireToolbar() {
       chart.zoomAt(chart.plotX() + chart.plotW() / 2, 1 / 1.5, 'zoom');
     }
   });
-  $('#zoomRange').value = kToSlider(chart.view.k);
-  chart._kToSlider = kToSlider;
+  zr.value = String(spanToSlider(chart.visibleYears()[1] - chart.visibleYears()[0]));
+  chart._spanToSlider = spanToSlider;
 }
 
 function wireYearJump() {
@@ -219,6 +221,18 @@ function wireYearJump() {
   const era = $('#year-era');
   const error = $('#year-input-error');
   if (!form || !input || !era || !error) return;
+
+  const moveYear = delta => {
+    const map = window.chronomap;
+    if (!map || !map.state || typeof map.setYear !== 'function') return;
+    let next = map.state.year + delta;
+    // В исторической нумерации года 0 нет: между 1 до н.э. и 1 н.э. перескакиваем его.
+    if (map.state.year < 0 && next === 0) next = 1;
+    else if (map.state.year > 0 && next === 0) next = -1;
+    map.setYear(next);
+  };
+  $('#year-prev')?.addEventListener('click', () => moveYear(-1));
+  $('#year-next')?.addEventListener('click', () => moveYear(1));
 
   const clearError = () => {
     error.textContent = '';
@@ -277,10 +291,12 @@ function syncView(_instance, source) {
       });
     }
   }
-  $('#spanOut').textContent = `${Math.round(b - a)} лет на экране`;
+  const spanLabel = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(b - a));
+  $('#spanOut').textContent = `${spanLabel} лет на экране`;
   $('#status').textContent =
     `${formatYear(a, true)} — ${formatYear(b, true)} · объектов: ${DATA.meta.counts.entities}`;
-  if (chart._kToSlider) $('#zoomRange').value = chart._kToSlider(chart.view.k);
+  if (chart._spanToSlider) $('#zoomRange').value = chart._spanToSlider(b - a);
+  syncVerticalScaleControls();
   drawMinimap();
   // рамка сдвинулась → в ленте обновить силуэты событий по краям
   if (window.FEED && window.FEED._refresh) window.FEED._refresh();
@@ -586,8 +602,8 @@ function wireMinimap() {
   };
   const spanNow = () => {
     const s = chart.visibleYears()[1] - chart.visibleYears()[0];
-    if (!(s >= 5)) return 500;
-    return s > 35000 ? 14000 : s;
+    if (!Number.isFinite(s) || s <= 0) return 500;
+    return Math.max(chart.minVisibleYears, Math.min(chart.maxVisibleYears, s));
   };
   const apply = u => {
     if (!grab) return;
