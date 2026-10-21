@@ -21,16 +21,22 @@ export async function loadData() {
 }
 
 export function topbar(active) {
-  const links = [['index.html', 'Карта'], ['table.html', 'Таблица'],
-                 ['pages/regions.html', 'Регионы'],
-                 ['pages/events.html', 'События'], ['pages/entity.html', 'Статьи'],
-                 ['pages/about.html', 'О проекте']];
+  const links = [['index.html', 'Главная', 'main'],
+                 ['map.html', 'Карта', 'map'],
+                 [null, 'Таблица', 'table'],
+                 ['pages/regions.html', 'Регионы', 'regions'],
+                 ['pages/events.html', 'События', 'events'],
+                 ['pages/entity.html', 'Статьи', 'articles'],
+                 ['pages/about.html', 'О проекте', 'about']];
   return `<header class="topbar">
-    <div class="brand"><span class="brand-mark"></span>
-      <div><b>Хронолента мира</b><small>синхронологическая таблица · ≈4,2 млн лет назад — 2000 н.э.</small></div>
-    </div>
-    <nav class="nav">${links.map(([h, t]) =>
-      `<a class="${t === active ? 'active' : ''}" href="${BASE}${h}">${t}</a>`).join('')}</nav>
+    <a class="brand" href="${BASE}index.html" aria-label="Хрониста — на главную">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div><b>Хрониста</b><small>События. Искусство. Люди</small></div>
+    </a>
+    <nav class="nav" aria-label="Основная навигация">${links.map(([h, t, key]) => {
+      const href = h ? BASE + h : BASE + 'map.html#table';
+      return `<a class="${t === active ? 'active' : ''}" href="${href}">${t}</a>`;
+    }).join('')}</nav>
   </header>`;
 }
 
@@ -39,7 +45,7 @@ export function entityHref(kind, id) {
 }
 export function chartHref(kind, id) {
   const p = { entity: 'e', event: 'v', migration: 'm', region: 'r', era: 'a' }[kind] || 'e';
-  return `${BASE}index.html#${p}/${id}`;
+  return `${BASE}map.html#${p}/${id}`;
 }
 
 export function collections(data) {
