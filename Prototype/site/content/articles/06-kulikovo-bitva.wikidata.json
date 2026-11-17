@@ -1,0 +1,74 @@
+{
+  "_comment": "Снимок данных Wikidata, который в настоящей версии забирает скрипт. Номера связей оставлены пустыми специально: в прототипе они не выдумываются.",
+  "wikidata": "Q210354",
+  "label": "Куликовская битва",
+  "description": "сражение 8 сентября 1380 года между русскими княжествами и Золотой Ордой",
+  "fetched_at": "2026-11-16",
+  "wikipedia": {
+    "lang": "ru",
+    "title": "Куликовская битва",
+    "url": "https://ru.wikipedia.org/wiki/Куликовская_битва",
+    "revid": null,
+    "license": "CC BY-SA 4.0",
+    "authors_url": "https://ru.wikipedia.org/w/index.php?title=Куликовская_битва&action=history"
+  },
+  "image": {
+    "src": "/public/img/kulikovo-lubok.jpg",
+    "width": 832,
+    "height": 522,
+    "caption": "Куликовская битва. Лубочная картина Ивана Блинова",
+    "author": "Иван Блинов",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Kulikovo_lubok.jpg",
+    "note": "В настоящей версии адрес, подпись, автор и лицензия приходят из Wikidata/Викисклада вместе с файлом."
+  },
+  "facts": [
+    {
+      "label": "Дата",
+      "value": "8 сентября 1380"
+    },
+    {
+      "label": "Место",
+      "value": "Куликово поле, устье Непрядвы"
+    },
+    {
+      "label": "Координаты",
+      "value": "53°39′09″ с. ш., 38°39′13″ в. д."
+    },
+    {
+      "label": "Стороны",
+      "value": "русские княжества · Золотая Орда"
+    },
+    {
+      "label": "Полководцы",
+      "value": "Дмитрий Иванович · Мамай"
+    },
+    {
+      "label": "Итог",
+      "value": "победа русских войск"
+    }
+  ],
+  "relations": [
+    {
+      "id": null,
+      "label": "Дмитрий Донской",
+      "relation": "полководец",
+      "note": "в снимке из API здесь будет Q-номер"
+    },
+    {
+      "id": null,
+      "label": "Мамай",
+      "relation": "противник"
+    },
+    {
+      "id": null,
+      "label": "Куликово поле",
+      "relation": "место"
+    },
+    {
+      "id": null,
+      "label": "Битва на Воже",
+      "relation": "предшествует"
+    }
+  ]
+}

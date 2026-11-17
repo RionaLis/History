@@ -1,0 +1,90 @@
+[
+  {
+    "id": "v-obzor",
+    "title": "Куликовская битва — обзор",
+    "topic": "Сражение",
+    "date": "2013-03-22",
+    "duration": "5:12",
+    "url": "https://www.youtube.com/watch?v=IxXz084kpkU",
+    "article": null,
+    "visibleFrom": 0,
+    "exclusive": false
+  },
+  {
+    "id": "v-hod",
+    "title": "Куликовская битва (Донское побоище). 1380 год",
+    "topic": "Сражение",
+    "date": "2022-01-12",
+    "duration": "8:40",
+    "url": "https://www.youtube.com/watch?v=x73LNDLahAU",
+    "article": "hod-bitvy",
+    "visibleFrom": 1,
+    "exclusive": false
+  },
+  {
+    "id": "v-rekon",
+    "title": "Битва на Куликовом поле — реконструкция",
+    "topic": "Реконструкция",
+    "date": "2018-06-18",
+    "duration": "4:35",
+    "url": "https://www.youtube.com/watch?v=3mqqPVDwBj8",
+    "article": null,
+    "visibleFrom": 0,
+    "exclusive": false
+  },
+  {
+    "id": "v-vozha",
+    "title": "Куликовская битва. Эпизод 12. Битва на Воже",
+    "topic": "Предыстория",
+    "date": "2022-03-25",
+    "duration": "14:20",
+    "url": "https://www.youtube.com/watch?v=8KImxRzynzk",
+    "article": "nakanune",
+    "visibleFrom": 1,
+    "exclusive": false
+  },
+  {
+    "id": "v-en",
+    "title": "The Battle of Kulikovo 1380 — документальный разбор",
+    "topic": "Источники",
+    "date": "2024-10-07",
+    "duration": "26:40",
+    "url": "https://www.youtube.com/watch?v=PKXrDLIPFGQ",
+    "article": "istochniki",
+    "visibleFrom": 1,
+    "exclusive": false
+  },
+  {
+    "id": "v-mesto",
+    "title": "Как ищут место Куликовской битвы",
+    "topic": "Реконструкция",
+    "date": "2021-09-08",
+    "duration": "18:05",
+    "url": "https://www.youtube.com/watch?v=3mqqPVDwBj8",
+    "article": null,
+    "visibleFrom": 0,
+    "exclusive": false
+  },
+  {
+    "id": "v-posledstviya",
+    "title": "1382: Тохтамыш и разорение Москвы",
+    "topic": "Последствия",
+    "date": "2023-05-30",
+    "duration": "11:50",
+    "url": "https://www.youtube.com/watch?v=IxXz084kpkU",
+    "article": "posledstviya",
+    "visibleFrom": 1,
+    "exclusive": false
+  },
+  {
+    "id": "v-lecture",
+    "title": "Лекция: Куликовская битва в источниках и историографии",
+    "topic": "Источники",
+    "date": "2026-10-01",
+    "duration": "52:00",
+    "url": "https://www.youtube.com/watch?v=PKXrDLIPFGQ",
+    "article": "istochniki",
+    "visibleFrom": 3,
+    "exclusive": true
+  }
+]

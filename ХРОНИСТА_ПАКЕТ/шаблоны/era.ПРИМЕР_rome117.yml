@@ -1,0 +1,108 @@
+# =====================================================================
+#  era.yml — РИМСКАЯ ИМПЕРИЯ В 117 ГОДУ Н. Э.
+#  Максимальное расширение: Траян только что присоединил Армению,
+#  Ассирию и Месопотамию. Пилотная эпоха проекта.
+# =====================================================================
+
+id: rome117
+name_ru: "Римская империя в 117 году н. э."
+name_short_ru: "117 н. э."
+
+year: 117
+valid_from: 115
+valid_to: 119
+
+# Эпоха МИРОВАЯ: берём всю Землю.
+scope: world
+
+# bbox НЕ ЗАДАНА намеренно.
+# Рамка нужна только для прицельного фрагмента региона. Для мировой карты она
+# вредна: отсекает то, что к эпохе относится. Проверено на себе — с рамкой
+# 20,5,78,42 из ближневосточного среза −2400 выпадала культура колоколовидных
+# кубков (Испания), хотя для мировой карты она нужна.
+# Заполните [запад, юг, восток, север], только если делаете региональный срез.
+# bbox: [-12, 22, 62, 60]
+
+ohm_planet: "~/ohm/planet.osm.pbf"
+
+# Мировой снимок на z0–6 (~1,5 МБ). Деталь Рима — отдельным региональным
+# файлом maps/poi/rome/ на z10–14, а не здесь.
+maxzoom: 6
+
+# ---------------------------------------------------------------------
+# ЧТО ДОЛЖНО БЫТЬ НА ЭТОЙ КАРТЕ.
+# Единственная часть, которую нельзя автоматизировать: инструмент не может
+# догадаться, чего в данных НЕТ.
+#
+# Варианты написания обязательны: в OHM Римская империя может лежать как
+# «Regnum Romanum», «Imperium Romanum» или «Roman Empire».
+#
+# Q-номера здесь НЕ проставлены намеренно: их надо проверять через
+# tools/wd_lookup.py, а не писать по памяти. Один раз я взял Q189058 для
+# Гавгамел — это оказался Целлинген в Баварии.
+# ---------------------------------------------------------------------
+expected:
+  # --- сама империя и её провинции ---
+  - {ru: "Римская империя",            variants: ["Imperium Romanum", "Roman Empire", "Regnum Romanum", "Roma"]}
+  - {ru: "Рим",                        variants: ["Roma", "Rome"]}
+  - {ru: "Италия",                     variants: ["Italia"]}
+  - {ru: "Британия",                   variants: ["Britannia"]}
+  - {ru: "Галлия",                     variants: ["Gallia"]}
+  - {ru: "Испания",                    variants: ["Hispania"]}
+  - {ru: "Дакия",                      variants: ["Dacia"]}
+  - {ru: "Мёзия",                      variants: ["Moesia"]}
+  - {ru: "Паннония",                   variants: ["Pannonia"]}
+  - {ru: "Африка",                     variants: ["Africa", "Africa Proconsularis"]}
+  - {ru: "Египет",                     variants: ["Aegyptus", "Egypt"]}
+  - {ru: "Сирия",                      variants: ["Syria"]}
+  - {ru: "Иудея",                      variants: ["Judaea", "Judea"]}
+  - {ru: "Каппадокия",                 variants: ["Cappadocia"]}
+  - {ru: "Азия",                       variants: ["Asia", "Asia Minor"]}
+  - {ru: "Вифиния и Понт",             variants: ["Bithynia", "Pontus"]}
+  # --- пограничные провинции Траяна, самые свежие на эту дату ---
+  - {ru: "Армения",                    variants: ["Armenia", "Armenia Magna"]}
+  - {ru: "Месопотамия",                variants: ["Mesopotamia"]}
+  - {ru: "Ассирия",                    variants: ["Assyria", "Assyria (Roman province)"]}
+  # --- соседи: без них граница нечитаемa ---
+  - {ru: "Парфия",                     variants: ["Parthia", "Parthian Empire", "Arsacid"]}
+  - {ru: "Кушанское царство",          variants: ["Kushan", "Kushan Empire"]}
+  - {ru: "Хань",                       variants: ["Han", "Eastern Han", "Han dynasty"]}
+  - {ru: "Германия",                   variants: ["Germania", "Germania Magna", "Germania Libera"]}
+  - {ru: "Сарматы",                    variants: ["Sarmatia", "Sarmatians", "Sarmati"]}
+  - {ru: "Иберия",                     variants: ["Iberia", "Caucasian Iberia"]}
+  - {ru: "Албания Кавказская",         variants: ["Caucasian Albania", "Albania"]}
+  - {ru: "Аксум",                      variants: ["Aksum", "Axum"]}
+  - {ru: "Аравия",                     variants: ["Arabia Petraea", "Nabataea", "Arabia"]}
+  # --- города, которые обязаны быть точками ---
+  - {ru: "Александрия",                variants: ["Alexandria", "Alexandria Aegypti"]}
+  - {ru: "Антиохия",                   variants: ["Antioch", "Antiochia"]}
+  - {ru: "Карфаген",                   variants: ["Carthage", "Carthago"]}
+  - {ru: "Иерусалим",                  variants: ["Jerusalem", "Aelia Capitolina"]}
+  - {ru: "Афины",                      variants: ["Athenae", "Athens", "Ἀθῆναι"]}
+  - {ru: "Лондиниум",                  variants: ["Londinium", "London"]}
+  - {ru: "Вавилон",                    variants: ["Babylon", "Babylonia"]}
+  - {ru: "Пергам",                     variants: ["Pergamon", "Pergamum"]}
+  # --- дороги ---
+  - {ru: "Аппиева дорога",             variants: ["Via Appia"]}
+  - {ru: "Кассиева дорога",            variants: ["Via Cassia"]}
+  - {ru: "Эгнатиева дорога",           variants: ["Via Egnatia"]}
+  - {ru: "Янтарный путь",              variants: ["Amber Road"]}
+  - {ru: "Великий шёлковый путь",      variants: ["Silk Road"]}
+  # --- гидротехника: OHM это датировал, стоит проверить, что не потерялось ---
+  - {ru: "Аппиев акведук",             variants: ["Aqua Appia"]}
+  - {ru: "Cloaca Maxima",              variants: ["Cloaca Maxima"]}
+  - {ru: "Акведук Клавдия",            variants: ["Aqua Claudia"]}
+
+sources:
+  - name: "OpenHistoricalMap"
+    url: "https://openhistoricalmap.org/"
+    license: "CC0 — общественное достояние, можно использовать коммерчески без ограничений"
+  - name: "Natural Earth"
+    url: "https://www.naturalearthdata.com/"
+    license: "Public Domain — без ограничений"
+  - name: "Pleiades"
+    url: "https://pleiades.stoa.org/"
+    license: "CC BY 3.0 — ОБЯЗАТЕЛЬНА атрибуция на сайте"
+  - name: "Wikidata"
+    url: "https://www.wikidata.org/"
+    license: "CC0"

@@ -1,0 +1,45 @@
+{
+  "_comment": "Снимок Wikidata рядом со статьёй. В настоящей версии заполняется скриптом, поля fetched_at и revid — оттуда же.",
+  "wikidata": "Q000000",
+  "label": "Название сущности",
+  "description": "короткое описание из Wikidata",
+  "fetched_at": "2026-11-16",
+  "wikipedia": {
+    "lang": "ru",
+    "title": "Название статьи в Википедии",
+    "url": "https://ru.wikipedia.org/wiki/...",
+    "revid": null,
+    "license": "CC BY-SA 4.0",
+    "authors_url": "https://ru.wikipedia.org/w/index.php?title=...&action=history"
+  },
+  "image": {
+    "src": "/public/img/имя-файла.jpg",
+    "width": 832,
+    "height": 522,
+    "caption": "Подпись к изображению",
+    "author": "Автор",
+    "license": "Public domain / CC BY-SA 4.0",
+    "source_url": "https://commons.wikimedia.org/wiki/File:..."
+  },
+  "facts": [
+    {
+      "label": "Дата",
+      "value": "..."
+    },
+    {
+      "label": "Место",
+      "value": "..."
+    },
+    {
+      "label": "Итог",
+      "value": "..."
+    }
+  ],
+  "relations": [
+    {
+      "id": null,
+      "label": "Название связанной сущности",
+      "relation": "как связана"
+    }
+  ]
+}

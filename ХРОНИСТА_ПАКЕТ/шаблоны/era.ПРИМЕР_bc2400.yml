@@ -1,0 +1,62 @@
+# =====================================================================
+#  ТЕСТОВАЯ эпоха: 2400 год до н.э. — ранняя бронза
+#  Египет Древнего царства, Шумер, Индская цивилизация, Элам
+# =====================================================================
+id: bc2400
+name_ru: "Мир в 2400 году до н. э."
+name_short_ru: "2400 до н. э."
+year: -2400
+valid_from: -2450
+valid_to:   -2350
+scope: world
+maxzoom: 5
+fill_opacity: 0.55
+places_mode: snapshot
+
+# Где искать планетарный дамп OHM. Порядок поиска:
+#   1. это поле   2. переменная окружения OHM_PLANET   3. ~/ohm/planet.osm.pbf
+# Свежая ссылка всегда здесь: https://planet.openhistoricalmap.org/planet/state.txt
+# (важно: открывать её по https — вариант s3.amazonaws.com отдаёт 403)
+ohm_planet: "~/ohm/planet.osm.pbf"
+
+# ---------------------------------------------------------------------
+# ЧТО ДОЛЖНО БЫТЬ НА ЭТОЙ ЭПОХЕ.
+# Это единственная часть отчёта, которую нельзя автоматизировать:
+# инструмент не может догадаться, чего в данных НЕТ. Список заполняете вы
+# по справочнику или атласу — дальше он сам сверит и покажет дыры.
+#
+# Можно строкой ("Elam") или словарём с несколькими вариантами написания —
+# в OHM Египет лежит как «Kemet», а Индская цивилизация как
+# «Indus Valley Civilisation», поэтому полезно дать 2-3 варианта.
+# ---------------------------------------------------------------------
+expected:
+  - {ru: "Древнее царство Египта", variants: ["Kemet", "Old Kingdom", "Egypt", "Древнее царство"]}
+  - {ru: "Элам",                  variants: ["Elam", "Элам"]}
+  - {ru: "Индская цивилизация",   variants: ["Indus", "Харапп", "Harappa"]}
+  - {ru: "Лагаш",                 variants: ["Lagash"]}
+  - {ru: "Урук",                  variants: ["Uruk"]}
+  - {ru: "Умма",                  variants: ["Umma"]}
+  - {ru: "Киш",                   variants: ["Kish"]}
+  - {ru: "Ур",                    variants: ["Ur"]}
+  - {ru: "Аккад",                 variants: ["Akkad", "Agade"]}
+  - {ru: "Шумер",                 variants: ["Sumer"]}
+  - {ru: "Эбла",                  variants: ["Ebla"]}
+  - {ru: "Дильмун",               variants: ["Dilmun"]}
+  - {ru: "Маган",                 variants: ["Magan"]}
+  - {ru: "Культура колоколовидных кубков", variants: ["Bell Beaker"]}
+  - {ru: "Культура Кулли",        variants: ["Kulli"]}
+  - {ru: "Аратта",                variants: ["Aratta"]}
+  - {ru: "Мархаши",               variants: ["Marhashi", "Warakshe"]}
+  - {ru: "Аван",                  variants: ["Awan"]}
+  - {ru: "Гутиум",                variants: ["Gutium", "Guti"]}
+  - {ru: "Сиамум/амореи",         variants: ["Amorrite", "Amorite"]}
+
+sources:
+  - name: "OpenHistoricalMap, planet extract"
+    url: "https://www.openhistoricalmap.org/copyright"
+    license: "CC0"
+    used_for: "границы государств, ареалы культур, города — автоматический срез"
+  - name: "Natural Earth 1:110m"
+    url: "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
+    license: "public domain"
+    used_for: "современная подложка и береговая линия"

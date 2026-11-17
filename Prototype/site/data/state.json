@@ -1,0 +1,145 @@
+{
+  "seq": 3,
+  "users": {
+    "838f09f983f9b5f1": {
+      "uid": "838f09f983f9b5f1",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:25:44.711Z",
+      "entitlements": [],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    },
+    "3f495eb3e7804351": {
+      "uid": "3f495eb3e7804351",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:25:47.838Z",
+      "entitlements": [
+        {
+          "kind": "level",
+          "level": 0,
+          "source": "manual",
+          "from": "2026-11-17T15:25:47.917Z",
+          "to": null,
+          "note": "переключение в демо-режиме"
+        }
+      ],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    },
+    "e42d04e81439016a": {
+      "uid": "e42d04e81439016a",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:26:22.181Z",
+      "entitlements": [
+        {
+          "kind": "level",
+          "level": 3,
+          "source": "manual",
+          "from": "2026-11-17T15:28:28.299Z",
+          "to": null,
+          "note": "переключение в демо-режиме"
+        }
+      ],
+      "purchases": [],
+      "discounts": [],
+      "notes": [
+        {
+          "id": "N-1001",
+          "kind": "inline",
+          "articleId": "Q210354",
+          "block": 3,
+          "quote": "",
+          "text": "Моя заметка",
+          "createdAt": "2026-11-17T15:29:00.589Z",
+          "updatedAt": null
+        },
+        {
+          "id": "N-1002",
+          "kind": "inline",
+          "articleId": "Q210354",
+          "block": 3,
+          "quote": "",
+          "text": "Моя заметка",
+          "createdAt": "2026-11-17T15:29:01.006Z",
+          "updatedAt": null
+        }
+      ]
+    },
+    "808e30ae7ed8ffb4": {
+      "uid": "808e30ae7ed8ffb4",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:34:39.931Z",
+      "entitlements": [],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    },
+    "2434003b1785bb46": {
+      "uid": "2434003b1785bb46",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:34:43.146Z",
+      "entitlements": [],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    },
+    "71004bc26038cdfe": {
+      "uid": "71004bc26038cdfe",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:34:51.915Z",
+      "entitlements": [],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    },
+    "b42759986866b4e8": {
+      "uid": "b42759986866b4e8",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:34:55.603Z",
+      "entitlements": [],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    },
+    "00076dcd8b5fbd19": {
+      "uid": "00076dcd8b5fbd19",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:34:55.619Z",
+      "entitlements": [],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    },
+    "903c69bdd9d2b08a": {
+      "uid": "903c69bdd9d2b08a",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:35:02.357Z",
+      "entitlements": [],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    },
+    "995f0f40716eb301": {
+      "uid": "995f0f40716eb301",
+      "name": "Гость",
+      "email": "",
+      "createdAt": "2026-11-17T15:35:36.471Z",
+      "entitlements": [],
+      "purchases": [],
+      "discounts": [],
+      "notes": []
+    }
+  },
+  "tickets": []
+}
